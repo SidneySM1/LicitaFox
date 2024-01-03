@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title> {title} </title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="manifest" href="manifest.json?appver=760">
+    <!-- Tell the browser to be responsive to screen width -->
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+    <link rel="apple-touch-icon" sizes="180x180" href="app/images/icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    
+    {LIBRARIES}
+    {HEAD}
+    
+    <link href="app/lib/include/admin.min.css?appver=760" rel="stylesheet" type="text/css" media="screen">
+    <link rel="stylesheet" href="app/templates/{template}/css/AdminLTE.min.css">
+    <!-- AdminLTE Skins. Choose a skin from the css/skins folder instead of downloading all of them to reduce the load. -->
+   <link rel="stylesheet" href="app/templates/{template}/css/skins/_all-skins.min.css">
+   
+    <script>
+    $(function() {
+        __adianti_set_name('{application}');
+        __adianti_set_language('{lang}');
+        __adianti_set_debug({debug});
+    });
+    </script>
+
+    <style>
+        #adianti_div_content div div .panel  > div{
+            height: 300px;
+            background-color:#444444 !important;
+        }
+        #adianti_div_content div div .panel-heading{
+        min-height:166px;
+        height:208px !important;
+        }
+        #adianti_div_content div div .panel-heading {
+          display: flex; /* Transforma em um container flexível */
+          flex-direction: column; /* Organiza os filhos em colunas (um acima do outro) */
+          align-items: center; /* Centraliza os itens horizontalmente */
+          justify-content: center; /* Centraliza os itens verticalmente */
+          min-height: 166px;
+          height: 208px !important;
+        }
+
+        #adianti_div_content div div .panel-heading::before {
+          content: "";
+          display: block;
+          width: 150px; 
+          height: 150px;
+          background: url('app/images/logo.png') no-repeat;
+          background-size: contain;
+        }
+        .btn{
+          display: block;
+          width: 100%;
+          height: 50px;
+          border-radius: 25px;
+          outline: none;
+          border: none;
+          background-image: linear-gradient(to right, #3b3d3c, #2f3231, rgb(86, 92, 90));
+          background-size: 200%;
+          font-size: 1.2rem;
+          color: #fff;
+          font-family: 'Poppins', sans-serif;
+          text-transform: uppercase;
+          margin: 1rem 0;
+          cursor: pointer;
+          transition: .5s;
+        }
+        .btn:hover{
+          background-position: right;
+        }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+        <div class="row">
+          <div class="col-md-6 offset-md-3">
+            <h2 class="text-center text-dark mt-5">LicitaFox</h2>
+            <div class="text-center mb-5 text-dark">Licitações</div>
+                <div id="wrapper" class="imagem-de-fundo">
+                    <div id="adianti_div_content"></div>
+                    <div id="adianti_online_content"></div>
+                    <div id="adianti_online_content2"></div>   
+                </div>
+                <div id="emailHelp" class="form-text text-center mb-5 text-dark">
+                    <a href="index.php?class=SystemRequestPasswordResetForm"><i class="fa fa-eraser gray" aria-hidden="true"></i> _t{Reset password}</a>
+                    <a href="index.php?class=SystemRegistrationForm"><i class="fa fa-user-plus gray" aria-hidden="true"></i> _t{Create account}</a>
+                </div>
+          </div>
+        </div>
+      </div>
+    </body>
+</html>

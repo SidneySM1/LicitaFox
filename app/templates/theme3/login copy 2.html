@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title> {title} </title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="manifest" href="manifest.json?appver=760">
+    <!-- Tell the browser to be responsive to screen width -->
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+    <link rel="apple-touch-icon" sizes="180x180" href="app/images/icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    
+    {LIBRARIES}
+    {HEAD}
+    
+    <link href="app/lib/include/admin.min.css?appver=760" rel="stylesheet" type="text/css" media="screen">
+    <link rel="stylesheet" href="app/templates/{template}/css/AdminLTE.min.css">
+    <!-- AdminLTE Skins. Choose a skin from the css/skins folder instead of downloading all of them to reduce the load. -->
+   <link rel="stylesheet" href="app/templates/{template}/css/skins/_all-skins.min.css">
+   
+    <script>
+    $(function() {
+        __adianti_set_name('{application}');
+        __adianti_set_language('{lang}');
+        __adianti_set_debug({debug});
+    });
+    </script>
+
+    <style>
+        #adianti_div_content div div .panel  > div{
+            height: 300px;
+            background-color:#1abc9c !important;
+        }
+        #adianti_div_content div div .panel-heading{
+ min-height:166px;
+ height:208px !important;
+}
+#adianti_div_content div div .panel-heading::after {
+  content: url('app/images/ico.png'); /* Insira o caminho da sua imagem */
+  display: block;
+  
+  width: 500px;
+  height: 200px !important;
+}
+#adianti_div_content div div .panel-heading::after {
+  content: "";
+  display: block;
+  width: 100px; /* Substitua pelo tamanho desejado da largura */
+  height: 100px; /* Substitua pelo tamanho desejado da altura */
+  background: url('app/images/ico.png') no-repeat;
+  background-size: contain; /* Isto assegura que a imagem se ajuste ao tamanho do content, sem cortar */
+}
+
+    </style>
+  </head>
+  <body>
+    <div class="container">
+        <div class="row">
+          <div class="col-md-6 offset-md-3">
+            <h2 class="text-center text-dark mt-5">Login Form</h2>
+            <div class="text-center mb-5 text-dark">Made with bootstrap</div>
+            
+                <div class="text-center">
+                  <img src="https://cdn.pixabay.com/photo/2016/03/31/19/56/avatar-1295397__340.png" class="img-fluid profile-image-pic img-thumbnail rounded-circle my-3"
+                    width="200px" alt="profile">
+                </div>
+    
+                <div id="wrapper" class="imagem-de-fundo">
+                    <div id="adianti_div_content"></div>
+                    <div id="adianti_online_content"></div>
+                    <div id="adianti_online_content2"></div>   
+                </div>
+                <div id="emailHelp" class="form-text text-center mb-5 text-dark">
+                    Problemas?<a href="index.php?class=SystemRequestPasswordResetForm"><i class="fa fa-eraser orange" aria-hidden="true"></i> _t{Reset password}</a>
+                    <br>
+                    Sem registro? <a href="index.php?class=SystemRegistrationForm"><i class="fa fa-user-plus green" aria-hidden="true"></i> _t{Create account}</a>
+                </div>
+          </div>
+        </div>
+      </div>
+    </body>
+</html>
