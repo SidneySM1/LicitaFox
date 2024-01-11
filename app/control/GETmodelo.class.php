@@ -5,7 +5,6 @@ class GETmodelo extends TPage {
     private int $limit = 50;
     private $panel;
 
-
     public function __construct()
     {
         parent::__construct();
@@ -80,7 +79,6 @@ class GETmodelo extends TPage {
 
         $expandir = $this->form->addExpandButton('Expandir', '', false);
         //$expandir->start_hidden = true;
-
         $this->datagrid = new BootstrapDatagridWrapper(new TDataGrid);
         $this->datagrid->width = '100%';
 

@@ -19,13 +19,14 @@ class WelcomeView extends TPage
 
         //parent::add($this->formNoticias);
         //parent::add($this->formLicitacoes);
-        
+        //
     }
 
     public function onReload()
     {
         try
         {
+            /* 
             $apiKey = 'e16c0d9d5d3341b59ea58fc3982fd3b0';
             $apiUrl = "https://newsapi.org/v2/everything?q=licitacoes&from=2023-12-03&sortBy=publishedAt&apiKey={$apiKey}";
 
@@ -83,6 +84,7 @@ class WelcomeView extends TPage
             }
 
             TTransaction::close(); 
+            */
         }
         catch (Exception $e)
         {
@@ -177,7 +179,7 @@ class WelcomeView extends TPage
             }
 
             .card-text {
-                flex-grow: 1; /* Faz com que o texto ocupe todo o espaço disponível na altura */
+                flex-grow: 1; 
                 font-size: 12px;
                 line-height: 1.4;
                 overflow: hidden;
@@ -243,12 +245,12 @@ class WelcomeView extends TPage
         }
 
         .img-container:hover img {
-            transform: scale(1.1); /* Efeito de zoom ao passar o mouse */
-            transition: transform 0.3s ease; /* Suaviza a transição */
+            transform: scale(1.1); 
+            transition: transform 0.3s ease; 
         }
         .card:hover {
-            transform: scale(1.1); /* Efeito de zoom ao passar o mouse */
-            transition: transform 0.3s ease; /* Suaviza a transição */
+            transform: scale(1.1); 
+            transition: transform 0.3s ease; 
         }
         .card-img-top {
             width: 100%;
@@ -274,7 +276,7 @@ class WelcomeView extends TPage
 echo(new TXMLBreadCrumb('menu.xml', 'WelcomeView'));
 
 $apiKey = 'e16c0d9d5d3341b59ea58fc3982fd3b0';
-$apiUrl = "https://newsapi.org/v2/everything?q=licitacoes&from=2023-12-03&sortBy=publishedAt&apiKey={$apiKey}";
+$apiUrl = "https://newsapi.org/v2/everything?q=licitacoes&from=2024-01-10&sortBy=publishedAt&apiKey={$apiKey}";
 
 $curl = curl_init($apiUrl);
 $headers = [
@@ -288,6 +290,8 @@ $response = curl_exec($curl);
 curl_close($curl);
 
 $noticias = json_decode($response);
+
+
 
 TTransaction::open('licitacoes');
 
@@ -309,26 +313,34 @@ $objects = $repository->load($criteria);
             <!-- Exemplo de notícia -->
             <div class="row row-cards">
                 <?php
-                foreach ($noticias->articles as $article) {
-                $publishedDate = new DateTime($article->publishedAt);
-                $diaMes = $publishedDate->format('d/m');  ?>
-                <div class="col-6 col-card">
-                    <div class="col-card__content">
-                        <div class="card">
-                            <div class="img-container">
-                                <img class="card-img-top" src="<?php echo $article->urlToImage; ?>" alt="Card image cap">
-                            </div>                          
-                            <div class="card-body">
-                                <h5 class="card-title"><?php echo $article->title ?></h5>
-                                <small><?php echo $diaMes ?></small>  
-                                <p class="card-text"><?php echo $article->description ?></p>
+                if (isset($noticias->code)){
+                    echo "<h4>Noticias não encontradas, codigo: $noticias->code</h4>";
+                    var_dump($noticias);
+                }else if($noticias->totalResults != 0){
+                    
+                    foreach ($noticias->articles as $article) {
+                        $publishedDate = new DateTime($article->publishedAt);
+                        $diaMes = $publishedDate->format('d/m');  ?>
+                        <div class="col-6 col-card">
+                            <div class="col-card__content">
+                                <div class="card">
+                                    <div class="img-container">
+                                        <img class="card-img-top" src="<?php echo $article->urlToImage; ?>" alt="Card image cap">
+                                    </div>                          
+                                    <div class="card-body">
+                                        <h5 class="card-title"><?php echo $article->title ?></h5>
+                                        <small><?php echo $diaMes ?></small>  
+                                        <p class="card-text"><?php echo $article->description ?></p>
+                                    </div>
+                                    <a href="<?php echo $article->url; ?>" target="_blank" class="btn btn-secondary">Leia Mais</a>
+                                </div>
                             </div>
-                            <a href="<?php echo $article->url; ?>" target="_blank" class="btn btn-secondary">Leia Mais</a>
                         </div>
-                    </div>
-                </div>
-
-                <?php }?>
+                    <?php }
+                }
+                else{
+                    echo "<h4>Novas noticias hoje: $noticias->totalResults</h4>";
+                }?>
 
             </div>
         </div>
