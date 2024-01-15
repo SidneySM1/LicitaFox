@@ -206,8 +206,8 @@ class GETmodelo extends TPage {
         }
         
         //var_dump($param);
-        $token = 'abcdefabcdefabcdefabcdefabcdef97';
         $token = '986259b8ae392b22491634a213258539';
+        $token = 'abcdefabcdefabcdefabcdefabcdef97';
         $parametros = $this->montarParametrosAPI($param);
         //var_dump($parametros);
         if (isset($param['page'])){
@@ -369,6 +369,25 @@ class GETmodelo extends TPage {
             $licitacao = new MinhasLicitacoes();
             $licitacao->fromArray($param);
             $licitacao->store();
+
+            $userid = TSession::getValue('userid');
+            $criteria = new TCriteria;
+            $criteria->add(new TFilter('user_id', '=', $userid));
+            $criteria->add(new TFilter('licitacao_id', '=', $param['id_licitacao']));
+        
+            $repository = new TRepository('LicitacoesUser');
+            $duplicatas = $repository->load($criteria);
+        
+            if (count($duplicatas) > 0) {
+                throw new Exception("Já existe uma licitação com este ID para o usuário.");
+            }
+        
+            $licitacaoUser = new LicitacoesUser();
+            $licitacaoUser->user_id = $userid;
+            $licitacaoUser->licitacao_id = $param['id_licitacao'];
+            $licitacaoUser->status = 0;
+            $licitacaoUser->store();
+
             TTransaction::close();
 
             new TMessage('info', "Licitação {$param['id_licitacao']} inserida com sucesso.");

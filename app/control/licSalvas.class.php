@@ -108,29 +108,54 @@ class licSalvas extends TPage
     }
 
     public function onReload($param = NULL)
-    {
-        try {
-            TTransaction::open('licitacoes'); // Abre uma transação
+{
+    try {
+        TTransaction::open('licitacoes'); 
 
-            $repository = new TRepository('MinhasLicitacoes');
+        $userId = TSession::getValue('userid');
 
-            $objects = $repository->load(new TCriteria); // Carrega todos objetos
+        // Primeira consulta para obter os IDs das licitações do usuário
+        $criteriaUserLicitacoes = new TCriteria;
+        $criteriaUserLicitacoes->add(new TFilter('user_id', '=', $userId));
 
-            $this->datagrid->clear(); // Limpa a datagrid
+        $repositoryUserLicitacoes = new TRepository('LicitacoesUser');
+        $userLicitacoes = $repositoryUserLicitacoes->load($criteriaUserLicitacoes);
 
-            if ($objects) {
-                foreach ($objects as $obj) {
-                    $this->datagrid->addItem($obj); // Adiciona o objeto na grid
-                }
+        // MONTAR ARRAY DE IDS DAS LICITACOES DO USUARIO
+        $licitacaoIds = array();
+        if ($userLicitacoes) {
+            foreach ($userLicitacoes as $userLicitacao) {
+                $licitacaoIds[] = $userLicitacao->licitacao_id;
             }
-
-            TTransaction::close(); // Fecha a transação
-        } catch (Exception $e) {
-            new TMessage('error', $e->getMessage());
-            TTransaction::rollback();
         }
-        $this->loaded = true;
+
+        // Verifica se há IDs para buscar
+        if (count($licitacaoIds) == 0) {
+            throw new Exception("Nenhuma licitação encontrada para o usuário.");
+        }
+
+        // Segunda consulta para buscar as licitações em MinhasLicitacoes
+        $criteriaMinhasLicitacoes = new TCriteria;
+        $criteriaMinhasLicitacoes->add(new TFilter('id_licitacao', 'IN', $licitacaoIds));
+
+        $repositoryMinhasLicitacoes = new TRepository('MinhasLicitacoes');
+        $minhasLicitacoes = $repositoryMinhasLicitacoes->load($criteriaMinhasLicitacoes);
+
+        $this->datagrid->clear();
+
+        if ($minhasLicitacoes) {
+            foreach ($minhasLicitacoes as $minhaLicitacao) {
+                if ($minhaLicitacao->status >= 0){$this->datagrid->addItem($minhaLicitacao);}
+            }
+        }
+
+        TTransaction::close();
+    } catch (Exception $e) {
+        new TMessage('error', $e->getMessage());
+        TTransaction::rollback();
     }
+    $this->loaded = true;
+}
 
     // Implementar o método para exibir detalhes aqui
     public function onView($param)
