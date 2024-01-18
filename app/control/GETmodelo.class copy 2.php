@@ -1,16 +1,14 @@
 <?php
-$zsuper;
+
 class GETmodelo extends TPage {
     private $form, $datagrid, $pageNavigation, $loaded=false;
     private int $limit = 20;
     private $panel;
-    private $data2;
 
     public function __construct()
     {
         parent::__construct();
-        //$formData = TSession::getValue('form_data');
-        $formData = $this->data;
+        $formData = TSession::getValue('form_data');
         
         $this->form = new BootstrapFormBuilder('form_localidades');
         $this->form->setFormTitle('Busca');
@@ -78,8 +76,7 @@ class GETmodelo extends TPage {
         $this->form->addfields([new TLabel('Palavra-chave:')], [$palavra_chave]);
         
         $this->form->addAction('Buscar', new TAction([$this, 'onReload']), 'fa:search blue');
-        //$this->form->setData( TSession::getValue('form_data'));
-        $this->form->setData($this->data);
+        $this->form->setData( TSession::getValue('form_data'));
 
         $expandir = $this->form->addExpandButton('Expandir', '', false);
         //$expandir->start_hidden = true;
@@ -183,7 +180,9 @@ class GETmodelo extends TPage {
         //$this->pageNavigation->setAction(new TAction([$this, 'onReload'], $formData));
 
         $this->pageNavigation = new TPageNavigation;
-        $this->pageNavigation->setAction(new TAction(array($this, 'onReload')));
+        $this->pageNavigation->setAction(new TAction([$this, 'onReload'], ['page' => '{page}'] + (array)TSession::getValue('form_data'), $formData));
+        $this->pageNavigation->setLimit($this->limit);
+        $this->pageNavigation->setProperties(['method' => 'onReload']); // método que será chamado
         
         $vbox = new TVBox;
         $vbox->style = 'width: 100%';
@@ -194,138 +193,64 @@ class GETmodelo extends TPage {
         parent::add($vbox);
         
     }
-    function onReload($param = NULL)
-    {
-        try
-        {
-            $this->panel->style = '';
-            $data2 = $this->form->getData();
-            $data = $data2;
-            // open a transaction with database 'samples'
-            TTransaction::open('licitacoesdb');
-            
-            // creates a repository for Customer
-            $repository = new TRepository('licitacoes');
-            $limit = 10;
-            
-            // creates a criteria
-            $criteria = new TCriteria;
-            $criteria->setProperties($param); // order, offset
-            $criteria->setProperty('limit', $limit);
+    function onReload($param = NULL){
+        $data = $this->form->getData();
+        //$this->panel->style = '';
 
-            if (!empty($data->data_insercao)) {
-                $publicado_em = "$data->data_insercao %";
-                $criteria->add(new TFilter('publicado_em', 'like', $publicado_em));
-            }
-            
-            // load the objects according to criteria
-            $objects = $repository->load($criteria);
-            
-            $this->datagrid->clear();
-            if ($objects)
-            {
-                // iterate the collection of active records
-                foreach ($objects as $object)
-                {
-                    // add the object inside the datagrid
-                    $this->datagrid->addItem($object);
-                }
-            }
-            
-            // reset the criteria for record count
-            $criteria->resetProperties();
-            $count= $repository->count($criteria);
-            
-            $this->pageNavigation->setCount($count); // count of records
-            $this->pageNavigation->setProperties($param); // order, page
-            $this->pageNavigation->setLimit($limit); // limit
-            
-            // close the transaction
-            TTransaction::close();
-            $this->loaded = true;
-            $this->form->setData($this->data);
+        
+        // Verifica se a chamada veio da paginação
+        if(isset($param['page'])) {
+            // Mescla parametros
+            $formData = TSession::getValue('form_data');
+            $param = array_merge((array)$formData, (array)$param);
+        } else {
+            // Não existe page(chamou via form), então salva os dados do formulário
+            TSession::setValue('form_data', $param);
         }
-        catch (Exception $e) // in case of exception
-        {
-            // shows the exception error message
-            new TMessage('error', $e->getMessage());
-            // undo all pending operations
-            TTransaction::rollback();
-        }
-    }
-    function onReload_($param = NULL)
-    {
-        $this->panel->style = '';
-        // Coletando dados do formulário
-        $this->data = $this->form->getData();
-        $data = $this->data;
-        try
-        {
-            // open a transaction with database 'samples'
+        
+        
+        try{
+            //$this->form->validate();
+            //$this->pageNavigation->setProperties($param);
             TTransaction::open('licitacoesdb');
-            
-            // creates a repository for Customer
-            $repository = new TRepository('licitacoes');
-            $limit = 10;
-            
-            // creates a criteria
-            $criteria = new TCriteria;
-            $criteria->setProperties($param); // order, offset
-            $criteria->setProperty('limit', $limit);
-            // Adicionando filtros conforme os dados do formulário
-            if (!empty($data->uf)) {
-                $criteria->add(new TFilter('estado', 'like', $data->uf));
-            }
-            if (!empty($data->data_insercao)) {
-                $publicado_em = "$data->data_insercao %";
-                $criteria->add(new TFilter('publicado_em', 'like', $publicado_em));
-            }
-            if (!empty($data->data_abertura)) {
-                $abertura = "$data->data_abertura %";
-                $criteria->add(new TFilter('abertura', 'like', $abertura));
-            }
-            if (!empty($data->modalidade)) {
-                $criteria->add(new TFilter('modalidade_id', '=', $data->modalidade));
-            }
-            if (!empty($data->id_portal)) {
-                $criteria->add(new TFilter('portal_id', '=', $data->id_portal));
-            }
-            if (!empty($data->palavra_chave)) {
-                $criteria->add(new TFilter('objeto', 'like', "%{$data->palavra_chave}%"));
-            }
-            
-            // load the objects according to criteria
-            $objects = $repository->load($criteria);
-            
-            $this->datagrid->clear();
-            if ($objects)
-            {
-                // iterate the collection of active records
-                foreach ($objects as $object)
-                {
-                    // add the object inside the datagrid
-                    $this->datagrid->addItem($object);
-                }
-            }
-            
-            // reset the criteria for record count
-            //$criteria->resetProperties();
-            $count= $repository->count($criteria);
-            $this->pageNavigation->enableCounters();
-            $this->pageNavigation->setCount($count); // count of records
-            $this->pageNavigation->setProperties($param); // order, page
-            $this->pageNavigation->setLimit($limit); // limit
-            
+            $repo = new TRepository('licitacoes');
+            $licitacoes = $repo->load(new TCriteria);
+            $repoTotal =$repo->count(new TCriteria);
             TTransaction::close();
-            $this->loaded = true;
-            // Recarregar os dados do formulário
-            $this->form->setData($this->data);
-        }
-        catch (Exception $e) 
+
+            $this->pageNavigation->setCount($repoTotal);
+
+            if ($licitacoes)
+            {
+                TTransaction::open('licitacoesdb'); // Abre uma transação com o banco
+
+                foreach ($licitacoes as $licitacao) {
+                    
+                    //Convertendo o item para objeto para manipulação
+                    $licitacaoObj = (object) $licitacao;
+                    $this->datagrid->addItem($licitacaoObj);
+                    /*
+                    // Se não, verifica se está na lista de licitações removidas
+                    $licitacaoRemovida = MinhasLicitacoesRemovidas::where('identificador', '=', $licitacaoObj->identificador)->first();
+                    if ($licitacaoRemovida) {
+                        //var_dump($licitacaoObj->titulo);
+                        //$licitacaoObj->titulo .= " <span style='color:red;'>(REMOVIDO!!)</span>";
+
+                        // NÂO IRA APARECER
+                    } else {
+                        $this->datagrid->addItem($licitacaoObj);
+                    }
+                    */
+                }
+
+                TTransaction::close(); // Fecha a transação
+            }
+
+        }catch (Exception $e)
         {
-            new TMessage('error', $e->getMessage());
-            TTransaction::rollback();
+            new TMessage('API', $e->getMessage());
         }
+        $this->form->setData($data);
     }
     
     function show()
@@ -334,6 +259,40 @@ class GETmodelo extends TPage {
         parent::show();
     }
     
+
+    public function montarParametrosAPI($param)
+    {
+        $formData = TSession::getValue('form_data');
+        $param = array_merge((array)$formData, (array)$param);
+
+        $parametros = [];
+        if (!empty($param['uf'])) {
+            $parametros[] = 'uf=' . urlencode($param['uf']);
+        } 
+        if (!empty($param['palavra_chave'])) {
+            $parametros[] = 'palavra_chave=' . urlencode($param['palavra_chave']);
+        }
+        if (!empty($param['modalidade'])) {
+            $parametros[] = 'modalidade=' . urlencode($param['modalidade']);
+        }
+        if (!empty($param['id_portal'])) {
+            $parametros[] = 'id_portal=' . urlencode($param['id_portal']);
+        }
+        if (!empty($param['municipio_ibge'])) {
+            $parametros[] = 'municipio_ibge=' . urlencode($param['municipio_ibge']);
+        }
+        if (!empty($param['data_insercao'])) {
+            $parametros[] = 'data_insercao=' . urlencode($param['data_insercao']);
+        }
+        if (!empty($param['data_abertura'])) {
+            $parametros[] = 'data_inicio=' . urlencode($param['data_abertura']);
+        }
+        if (!empty($param['page'])) {
+            $parametros[] = 'pagina=' . urlencode($param['page']);
+        }
+        
+        return implode('&', $parametros);
+    }
 
     public function truncarTexto($texto, $limite = 140)
     {
@@ -347,6 +306,7 @@ class GETmodelo extends TPage {
     public function onsite_original($param)
     {
        TScript::create('window.open("'.$param['site_original'].'","_blank")');
+       $this->onReload((array)TSession::getValue('form_data'));
     }
 
     public function onView($param)
@@ -364,6 +324,7 @@ class GETmodelo extends TPage {
         $botaoLink->add('Acessar Portal');
 
         new TMessage('info', "<h4>$titulo</h4> <br> Orgão responsavel: <b>$orgao</b> <br> Objeto : <b>$objeto</b><br> $botaoLink");
+        $this->onReload((array)TSession::getValue('form_data'));
     }
     
     public function onDelete($param)
@@ -393,7 +354,8 @@ class GETmodelo extends TPage {
             new TMessage('error', $e->getMessage());
         }
         
-
+        // Recarrega os dados da sessão após a operação
+        $this->onReload((array)TSession::getValue('form_data'));
     }
 
     public function onInsert($param)
@@ -430,6 +392,7 @@ class GETmodelo extends TPage {
             TTransaction::rollback();
             new TMessage('error', $e->getMessage());
         }
+        $this->onReload((array)TSession::getValue('form_data'));
     }   
 }
 
