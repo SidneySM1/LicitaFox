@@ -276,7 +276,7 @@ class WelcomeView extends TPage
 echo(new TXMLBreadCrumb('menu.xml', 'WelcomeView'));
 
 $apiKey = 'e16c0d9d5d3341b59ea58fc3982fd3b0';
-$apiUrl = "https://newsapi.org/v2/everything?q=licitacoes&from=2024-01-10&sortBy=publishedAt&apiKey={$apiKey}";
+$apiUrl = "https://newsapi.org/v2/everything?q=licitacoes&from=2024-01-01&sortBy=publishedAt&apiKey={$apiKey}";
 
 $curl = curl_init($apiUrl);
 $headers = [

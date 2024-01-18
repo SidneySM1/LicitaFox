@@ -315,8 +315,6 @@ class GETmodelo extends TPage {
 
     public function onView($param)
     {
-        TTransaction::open('licitacoesdb');
-        TTransaction::close();
         $titulo = $param['titulo'];
         $orgao = $param['orgao'];
         $objeto = $param['objeto'];
