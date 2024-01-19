@@ -3,6 +3,7 @@ class licSalvas extends TPage
 {
     protected $datagrid; // listing
     protected $loaded;
+    
 
     //use Adianti\base\AdiantiStandardListTrait;
 
@@ -94,6 +95,7 @@ class licSalvas extends TPage
         $input_search = new TEntry('input_search');
         $input_search->placeholder = _t('Search');
         $input_search->setSize('100%');
+        
         
         $this->datagrid->enableSearch($input_search, 'id_licitacao, titulo, objeto, municipio, tipo, status');
         $panel->addHeaderWidget($input_search);

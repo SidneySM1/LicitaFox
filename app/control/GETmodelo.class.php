@@ -4,14 +4,26 @@ class GETmodelo extends TPage {
     private $form, $datagrid, $pageNavigation, $loaded=false;
     private int $limit = 20;
     private $panel;
-    private $data2;
+
+    use ListTrait;
+
+    private $database         = 'licitacoesdb';
+    private $activeRecord     = 'licitacoes';
+    private $applicationTitle = 'Busca de licitações';
+    private $filterFormTitle  = 'Filtros';
+    private $editForm         = 'Licitacoes';
+    private $keyField         = 'identificador';
+    private $fieldFocus       = 'input_quick_search';
+    //private $limit;
+    private $limit_padrao = 10; // 10, 15, 20, 50, 100
+    private $qtd_filtros = 0;
+
+
 
     public function __construct()
     {
         parent::__construct();
-        //$formData = TSession::getValue('form_data');
-        $formData = $this->data;
-        
+
         $this->form = new BootstrapFormBuilder('form_localidades');
         $this->form->setFormTitle('Busca');
 
@@ -76,15 +88,25 @@ class GETmodelo extends TPage {
         $this->form->addFields([new TLabel('Modalidade:')], [$modalidade]);
         $this->form->addFields([new TLabel('Portal:')], [$portal]);
         $this->form->addfields([new TLabel('Palavra-chave:')], [$palavra_chave]);
-        
-        $this->form->addAction('Buscar', new TAction([$this, 'onReload']), 'fa:search blue');
-        //$this->form->setData( TSession::getValue('form_data'));
-        $this->form->setData($this->data);
 
+        
+        /// MANTER DADOS NO FORM
+        $this->form->setData( TSession::getValue(__CLASS__.'_filter_data') );
+
+
+        $btn = $this->form->addAction(_t('Find'), new TAction([$this, 'onSearch']), 'fa:search');
+        $btn->class = 'btn btn-sm btn-primary';
+        //$this->form->addAction('Limpar', new TAction([$this, 'onClear']), 'fa:times red');
         $expandir = $this->form->addExpandButton('Expandir', '', false);
         //$expandir->start_hidden = true;
+
+        
+
+        /// TABELA AQUI
         $this->datagrid = new BootstrapDatagridWrapper(new TDataGrid);
         $this->datagrid->width = '100%';
+        $this->datagrid->datatable = 'true';
+
 
         $colunaObjeto = new TDataGridColumn('objeto', 'Objeto', 'left', '50%');
         $colunaObjeto->setTransformer(function ($value, $object, $row) {
@@ -112,8 +134,11 @@ class GETmodelo extends TPage {
         $this->datagrid->addColumn($colunaObjeto);
         $this->datagrid->addColumn($col_data);
 
+        $col_titulo->setAction(new TAction([$this, 'onReload']), ['order' => 'titulo']);
+        $col_data->setAction(new TAction([$this, 'onReload']), ['order' => 'abertura']);
+
         // ações em grupo
-        $action1 = new TDataGridAction([$this, 'onView'],     ['titulo'=>'{titulo}','orgao' => '{orgao}',  'objeto' => '{objeto}', 'site_original' => '{site_original}'] + (array)TSession::getValue('form_data'), $formData);
+        $action1 = new TDataGridAction([$this, 'onView'],     ['titulo'=>'{titulo}','orgao' => '{orgao}',  'objeto' => '{objeto}', 'site_original' => '{site_original}'] + (array)TSession::getValue(__CLASS__.'_filter_data'));
         //$action2 = new TDataGridAction([$this, 'onDelete'],   ['identificador' => '{identificador}' ] );
         $action2 = new TDataGridAction([$this, 'onDelete'], [
             'identificador' => '{identificador}',
@@ -132,7 +157,7 @@ class GETmodelo extends TPage {
             'tipo' => '{tipo}',
             'valor' => '{valor}',
             'id_portal' => '{id_portal}',
-        ]+ (array)TSession::getValue('form_data'), $formData);
+        ]+ (array)TSession::getValue(__CLASS__.'_filter_data'));
         $action3 = new TDataGridAction([$this, 'onInsert'], [
             'identificador' => '{identificador}',
             'titulo' => '{titulo}',
@@ -150,7 +175,7 @@ class GETmodelo extends TPage {
             'tipo' => '{tipo}',
             'valor' => '{valor}',
             'id_portal' => '{id_portal}',
-        ]+ (array)TSession::getValue('form_data'), $formData);        
+        ]+ (array)TSession::getValue(__CLASS__.'_filter_data'));        
                 
         $action1->setLabel('Ver info');
         $action1->setImage('fa:search #7C93CF');
@@ -178,154 +203,39 @@ class GETmodelo extends TPage {
         $this->datagrid->addActionGroup($action_group);
 
         $this->datagrid->createModel();
-        $this->datagrid->clear();
+        //$this->datagrid->clear();
         
         //$this->pageNavigation->setAction(new TAction([$this, 'onReload'], $formData));
 
         $this->pageNavigation = new TPageNavigation;
-        $this->pageNavigation->setAction(new TAction(array($this, 'onReload')));
+        $this->pageNavigation->setAction(new TAction([$this, 'onReload']));
+        $this->pageNavigation->setWidth($this->datagrid->getWidth());
+        $this->pageNavigation->style = 'padding-top:0px; margin-right:10px;';
+
         
+
         $vbox = new TVBox;
         $vbox->style = 'width: 100%';
         $vbox->add(new TXMLBreadCrumb('menu.xml', __CLASS__));
         $vbox->add($this->form);
         $vbox->add($this->panel = TPanelGroup::pack('', $this->datagrid, $this->pageNavigation)); 
-        $this->panel->style = 'display:none;';      
+        $this->panel->style = 'display:none;'; 
+        $this->onDropdownExport();     
         parent::add($vbox);
         
     }
-    function onReload($param = NULL)
+    public function onClearSession()
     {
-        try
-        {
-            $this->panel->style = '';
-            $data2 = $this->form->getData();
-            $data = $data2;
-            // open a transaction with database 'samples'
-            TTransaction::open('licitacoesdb');
-            
-            // creates a repository for Customer
-            $repository = new TRepository('licitacoes');
-            $limit = 10;
-            
-            // creates a criteria
-            $criteria = new TCriteria;
-            $criteria->setProperties($param); // order, offset
-            $criteria->setProperty('limit', $limit);
+        // clear session filters
+        TSession::setValue(__CLASS__.'_filter_estado',                 NULL);
+        TSession::setValue(__CLASS__.'_filter_objeto',          NULL);
+        TSession::setValue(__CLASS__.'_filter_abertura',       NULL);
+        TSession::setValue(__CLASS__.'_filter_modalidade',        NULL);
+        TSession::setValue(__CLASS__.'_filter_portal',        NULL);
+        TSession::setValue(__CLASS__.'_filter_publicado',        NULL);
 
-            if (!empty($data->data_insercao)) {
-                $publicado_em = "$data->data_insercao %";
-                $criteria->add(new TFilter('publicado_em', 'like', $publicado_em));
-            }
-            
-            // load the objects according to criteria
-            $objects = $repository->load($criteria);
-            
-            $this->datagrid->clear();
-            if ($objects)
-            {
-                // iterate the collection of active records
-                foreach ($objects as $object)
-                {
-                    // add the object inside the datagrid
-                    $this->datagrid->addItem($object);
-                }
-            }
-            
-            // reset the criteria for record count
-            $criteria->resetProperties();
-            $count= $repository->count($criteria);
-            
-            $this->pageNavigation->setCount($count); // count of records
-            $this->pageNavigation->setProperties($param); // order, page
-            $this->pageNavigation->setLimit($limit); // limit
-            
-            // close the transaction
-            TTransaction::close();
-            $this->loaded = true;
-            $this->form->setData($this->data);
-        }
-        catch (Exception $e) // in case of exception
-        {
-            // shows the exception error message
-            new TMessage('error', $e->getMessage());
-            // undo all pending operations
-            TTransaction::rollback();
-        }
-    }
-    function onReload_($param = NULL)
-    {
-        $this->panel->style = '';
-        // Coletando dados do formulário
-        $this->data = $this->form->getData();
-        $data = $this->data;
-        try
-        {
-            // open a transaction with database 'samples'
-            TTransaction::open('licitacoesdb');
-            
-            // creates a repository for Customer
-            $repository = new TRepository('licitacoes');
-            $limit = 10;
-            
-            // creates a criteria
-            $criteria = new TCriteria;
-            $criteria->setProperties($param); // order, offset
-            $criteria->setProperty('limit', $limit);
-            // Adicionando filtros conforme os dados do formulário
-            if (!empty($data->uf)) {
-                $criteria->add(new TFilter('estado', 'like', $data->uf));
-            }
-            if (!empty($data->data_insercao)) {
-                $publicado_em = "$data->data_insercao %";
-                $criteria->add(new TFilter('publicado_em', 'like', $publicado_em));
-            }
-            if (!empty($data->data_abertura)) {
-                $abertura = "$data->data_abertura %";
-                $criteria->add(new TFilter('abertura', 'like', $abertura));
-            }
-            if (!empty($data->modalidade)) {
-                $criteria->add(new TFilter('modalidade_id', '=', $data->modalidade));
-            }
-            if (!empty($data->id_portal)) {
-                $criteria->add(new TFilter('portal_id', '=', $data->id_portal));
-            }
-            if (!empty($data->palavra_chave)) {
-                $criteria->add(new TFilter('objeto', 'like', "%{$data->palavra_chave}%"));
-            }
-            
-            // load the objects according to criteria
-            $objects = $repository->load($criteria);
-            
-            $this->datagrid->clear();
-            if ($objects)
-            {
-                // iterate the collection of active records
-                foreach ($objects as $object)
-                {
-                    // add the object inside the datagrid
-                    $this->datagrid->addItem($object);
-                }
-            }
-            
-            // reset the criteria for record count
-            //$criteria->resetProperties();
-            $count= $repository->count($criteria);
-            $this->pageNavigation->enableCounters();
-            $this->pageNavigation->setCount($count); // count of records
-            $this->pageNavigation->setProperties($param); // order, page
-            $this->pageNavigation->setLimit($limit); // limit
-            
-            TTransaction::close();
-            $this->loaded = true;
-            // Recarregar os dados do formulário
-            $this->form->setData($this->data);
-        }
-        catch (Exception $e) 
-        {
-            new TMessage('error', $e->getMessage());
-            TTransaction::rollback();
-        }
+        TSession::setValue(__CLASS__.'_filter_data',               NULL);
+        TSession::setValue(__CLASS__.'_filter_counter',            0);
     }
     
     function show()
@@ -364,6 +274,7 @@ class GETmodelo extends TPage {
         $botaoLink->add('Acessar Portal');
 
         new TMessage('info', "<h4>$titulo</h4> <br> Orgão responsavel: <b>$orgao</b> <br> Objeto : <b>$objeto</b><br> $botaoLink");
+        $this->onReload($param);
     }
     
     public function onDelete($param)
@@ -430,6 +341,132 @@ class GETmodelo extends TPage {
             TTransaction::rollback();
             new TMessage('error', $e->getMessage());
         }
-    }   
+    }
+    
+    //////////////////////////////////////
+
+    public function onReload($param = NULL)
+    {
+        try {
+            $this->panel->style = '';
+            TTransaction::open('licitacoesdb');
+
+            $repository = new TRepository('licitacoes');
+
+            $limit = 10; // Defina o número de registros por página
+
+            // Cria um critério de seleção de dados
+            $criteria = new TCriteria;
+            $criteria->setProperty('limit', $limit);
+
+            if (isset($param['offset'])) {
+                $criteria->setProperty('offset', $param['offset']);
+            }
+
+            // Aplica filtros salvos na sessão
+            if (TSession::getValue(__CLASS__.'_filter_estado')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_estado'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_objeto')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_objeto'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_abertura')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_abertura'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_publicado')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_publicado'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_portal')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_portal'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_modalidade')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_modalidade'));
+            }
+
+            // Carrega os objetos conforme o critério
+            $licitacoes = $repository->load($criteria);
+            $this->datagrid->clear();
+
+            if ($licitacoes) {
+                foreach ($licitacoes as $licitacao) {
+                    $this->datagrid->addItem($licitacao);
+                }
+            }
+
+            $criteriaCount = new TCriteria;
+            // Aplica os mesmos filtros para contar os registros
+            if (TSession::getValue(__CLASS__.'_filter_estado')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_estado'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_objeto')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_objeto'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_abertura')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_abertura'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_publicado')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_publicado'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_portal')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_portal'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_modalidade')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_modalidade'));
+            }
+
+            $count = $repository->count($criteriaCount);
+            $this->pageNavigation->setCount($count); // conta a quantidade de registros
+            $this->pageNavigation->setProperties($param); // propriedades de navegação
+            $this->pageNavigation->setLimit($limit); // registros por página
+
+            TTransaction::close();
+        } catch (Exception $e) {
+            new TMessage('error', $e->getMessage());
+        }
+    }
+
+    public function onSearch($param)
+    {
+        // Obtém os dados do formulário
+        $this->onClearSession();
+        $data = $this->form->getData();
+
+        // Armazena os filtros na sessão
+        if (isset($data->palavra_chave) AND $data->palavra_chave){
+            TSession::setValue(__CLASS__.'_filter_estado', new TFilter('estado', '=', $data->uf));
+            $this->qtd_filtros++;
+        }
+        if (isset($data->palavra_chave) AND $data->palavra_chave){
+            TSession::setValue(__CLASS__.'_filter_objeto', new TFilter('objeto', 'like', "%{$data->palavra_chave}%"));
+            $this->qtd_filtros++;
+        }
+        if (isset($data->data_abertura) AND $data->data_abertura){
+            TSession::setValue(__CLASS__.'_filter_abertura', new TFilter('abertura', 'like', "$data->data_abertura %"));
+            $this->qtd_filtros++;
+        }
+        if (isset($data->data_insercao) AND $data->data_insercao){
+            TSession::setValue(__CLASS__.'_filter_publicado', new TFilter('publicado_em', 'like', "$data->data_insercao %"));
+            $this->qtd_filtros++;
+        }
+        if (isset($data->modalidade) AND $data->modalidade) {
+            TSession::setValue(__CLASS__.'_filter_modalidade', new TFilter('modalidade_id', '=', $data->modalidade));
+        }
+        if (isset($data->id_portal) AND $data->id_portal) {
+            TSession::setValue(__CLASS__.'_filter_portal', new TFilter('portal_id', '=', $data->id_portal));
+        }
+
+        
+
+
+        TSession::setValue(__CLASS__.'_filter_counter', $this->qtd_filtros);
+        
+        // fill the form with data again
+        $this->form->setData($data);
+        
+        // keep the search data in the session
+        TSession::setValue(__CLASS__.'_filter_data', $data);
+        //$this->onReload($param);
+        $this->resetParamAndOnReload();
+    }
 }
 
