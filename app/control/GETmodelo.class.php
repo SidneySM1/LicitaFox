@@ -33,7 +33,7 @@ class GETmodelo extends TPage {
         $estados = Estado::getObjects();
         $items = [];
         foreach ($estados as $obj) {
-            $items[$obj->sigla_estado] = $obj->nome_estado;
+            $items[$obj->sigla_estado] = "$obj->nome_estado - $obj->sigla_estado";
         }
         asort($items);
         $uf->addItems($items);
@@ -138,7 +138,7 @@ class GETmodelo extends TPage {
         $col_data->setAction(new TAction([$this, 'onReload']), ['order' => 'abertura']);
 
         // ações em grupo
-        $action1 = new TDataGridAction([$this, 'onView'],     ['titulo'=>'{titulo}','orgao' => '{orgao}',  'objeto' => '{objeto}', 'site_original' => '{site_original}'] + (array)TSession::getValue(__CLASS__.'_filter_data'));
+        $action1 = new TDataGridAction([$this, 'onView'],     ['titulo'=>'{titulo}','orgao' => '{orgao}',  'objeto' => '{objeto}', 'site_original' => '{site_original}'] + (array)TSession::getValue(__CLASS__.'_filter_data'), );
         //$action2 = new TDataGridAction([$this, 'onDelete'],   ['identificador' => '{identificador}' ] );
         $action2 = new TDataGridAction([$this, 'onDelete'], [
             'identificador' => '{identificador}',
@@ -186,7 +186,7 @@ class GETmodelo extends TPage {
         $action3->setLabel('Inserir licitação');
         $action3->setImage('far:hand-pointer green');
 
-        $action4 = new TDataGridAction([$this, 'onsite_original'],   ['site_original' => '{site_original}' ] );
+        $action4 = new TDataGridAction([$this, 'onsite_original'],   ['site_original' => '{site_original}' ]+ (array)TSession::getValue(__CLASS__.'_filter_data') );
 
         $action4->setLabel('Acessar portal');
         $action4->setImage('fa:external-link-alt green');
@@ -210,7 +210,7 @@ class GETmodelo extends TPage {
         $this->pageNavigation = new TPageNavigation;
         $this->pageNavigation->setAction(new TAction([$this, 'onReload']));
         $this->pageNavigation->setWidth($this->datagrid->getWidth());
-        $this->pageNavigation->style = 'padding-top:0px; margin-right:10px;';
+        //$this->pageNavigation->style = 'padding-top:0px; margin-right:10px;';
 
         
 
@@ -222,8 +222,10 @@ class GETmodelo extends TPage {
         $this->panel->style = 'display:none;'; 
         $this->onDropdownExport();     
         parent::add($vbox);
-        
+        TSession::setValue(__CLASS__.'_onReload', 1);
     }
+
+
     public function onClearSession()
     {
         // clear session filters
@@ -240,7 +242,11 @@ class GETmodelo extends TPage {
     
     function show()
     {
-        $this->onReload();
+        $onReload = TSession::getValue(__CLASS__.'_onReload');
+        if ($onReload = 1){
+            $this->onReload();
+            
+        }
         parent::show();
     }
     
@@ -257,6 +263,8 @@ class GETmodelo extends TPage {
     public function onsite_original($param)
     {
        TScript::create('window.open("'.$param['site_original'].'","_blank")');
+       $param = $this->keepNavigation($param);
+        $this->onReload($param);
     }
 
     public function onView($param)
@@ -272,8 +280,8 @@ class GETmodelo extends TPage {
         $botaoLink->target = '_blank';
         $botaoLink->class = 'btn btn-primary';
         $botaoLink->add('Acessar Portal');
-
         new TMessage('info', "<h4>$titulo</h4> <br> Orgão responsavel: <b>$orgao</b> <br> Objeto : <b>$objeto</b><br> $botaoLink");
+        $param = $this->keepNavigation($param);
         $this->onReload($param);
     }
     
@@ -415,7 +423,7 @@ class GETmodelo extends TPage {
             }
 
             $count = $repository->count($criteriaCount);
-            $this->pageNavigation->setCount($count); // conta a quantidade de registros
+            $this->pageNavigation->setCount($count);
             $this->pageNavigation->setProperties($param); // propriedades de navegação
             $this->pageNavigation->setLimit($limit); // registros por página
 
@@ -429,11 +437,13 @@ class GETmodelo extends TPage {
     {
         // Obtém os dados do formulário
         $this->onClearSession();
+        self::clearNavigation();
         $data = $this->form->getData();
+        
 
         // Armazena os filtros na sessão
-        if (isset($data->palavra_chave) AND $data->palavra_chave){
-            TSession::setValue(__CLASS__.'_filter_estado', new TFilter('estado', '=', $data->uf));
+        if (isset($data->uf) AND $data->uf){
+            TSession::setValue(__CLASS__.'_filter_estado', new TFilter('estado', 'like', $data->uf));
             $this->qtd_filtros++;
         }
         if (isset($data->palavra_chave) AND $data->palavra_chave){
@@ -454,8 +464,6 @@ class GETmodelo extends TPage {
         if (isset($data->id_portal) AND $data->id_portal) {
             TSession::setValue(__CLASS__.'_filter_portal', new TFilter('portal_id', '=', $data->id_portal));
         }
-
-        
 
 
         TSession::setValue(__CLASS__.'_filter_counter', $this->qtd_filtros);
