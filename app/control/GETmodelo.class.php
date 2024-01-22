@@ -116,12 +116,19 @@ class GETmodelo extends TPage {
         $col_titulo  = new TDataGridColumn('titulo', 'Titulo', 'left', '20%');
         $col_municipio = new TDataGridColumn('municipio', 'Cidade', 'center', '10%');
         $col_data = new TDataGridColumn('abertura', 'Abertura', 'center','10%');
+        $col_data->setTransformer(function($value, $object, $row) {
+            $rest = substr($value, -19, 10);    
+            return $rest; 
+        });
 
         $col_titulo->setTransformer(function($value, $object, $row) {
             TTransaction::open('licitacoes');
             
             // Verifica se a licitação está na lista de licitações ativas
-            $minhaLicitacao = MinhasLicitacoes::where('id_licitacao', '=', $object->identificador)->first();
+            //$minhaLicitacao = MinhasLicitacoes::where('id_licitacao', '=', $object->identificador)->first();
+            $minhaLicitacao = LicitacoesUser::where('licitacao_id', '=', $object->identificador)
+                                   ->where('user_id', '=', TSession::getValue('userid'))
+                                   ->first();
             if ($minhaLicitacao) {
                 // Se encontrada, adiciona um ícone de exclamação verde ao título para exibição
                 $value .= " <span style='color:green;'>INSERIDA!</span>";
@@ -138,7 +145,9 @@ class GETmodelo extends TPage {
         $col_data->setAction(new TAction([$this, 'onReload']), ['order' => 'abertura']);
 
         // ações em grupo
-        $action1 = new TDataGridAction([$this, 'onView'],     ['titulo'=>'{titulo}','orgao' => '{orgao}',  'objeto' => '{objeto}', 'site_original' => '{site_original}'] + (array)TSession::getValue(__CLASS__.'_filter_data'), );
+        //$action1 = new TDataGridAction([$this, 'onView'],     ['titulo'=>'{titulo}','orgao' => '{orgao}',  'objeto' => '{objeto}', 'site_original' => '{site_original}'] + (array)TSession::getValue(__CLASS__.'_filter_data'), );
+        $action1 = new TDataGridAction([$this, 'onView'],     ['titulo'=>'{titulo}','orgao' => '{orgao}',  'objeto' => '{objeto}', 'site_original' => '{site_original}']);
+
         //$action2 = new TDataGridAction([$this, 'onDelete'],   ['identificador' => '{identificador}' ] );
         $action2 = new TDataGridAction([$this, 'onDelete'], [
             'identificador' => '{identificador}',
@@ -158,24 +167,7 @@ class GETmodelo extends TPage {
             'valor' => '{valor}',
             'id_portal' => '{id_portal}',
         ]+ (array)TSession::getValue(__CLASS__.'_filter_data'));
-        $action3 = new TDataGridAction([$this, 'onInsert'], [
-            'identificador' => '{identificador}',
-            'titulo' => '{titulo}',
-            'municipio_IBGE' => '{municipio_IBGE}',
-            'uf' => '{uf}',
-            'orgao' => '{orgao}',
-            'abertura_datetime' => '{abertura_datetime}',
-            'objeto' => '{objeto}',
-            'link' => '{link}',
-            'site_original' => '{site_original}',
-            'municipio' => '{municipio}',
-            'abertura' => '{abertura}',
-            'aberturaComHora' => '{aberturaComHora}',
-            'id_tipo' => '{id_tipo}',
-            'tipo' => '{tipo}',
-            'valor' => '{valor}',
-            'id_portal' => '{id_portal}',
-        ]+ (array)TSession::getValue(__CLASS__.'_filter_data'));        
+        $action3 = new TDataGridAction([$this, 'onInsert'], ['identificador' => '{identificador}']);        
                 
         $action1->setLabel('Ver info');
         $action1->setImage('fa:search #7C93CF');
@@ -186,7 +178,8 @@ class GETmodelo extends TPage {
         $action3->setLabel('Inserir licitação');
         $action3->setImage('far:hand-pointer green');
 
-        $action4 = new TDataGridAction([$this, 'onsite_original'],   ['site_original' => '{site_original}' ]+ (array)TSession::getValue(__CLASS__.'_filter_data') );
+        //$action4 = new TDataGridAction([$this, 'onsite_original'],   ['site_original' => '{site_original}' ]+ (array)TSession::getValue(__CLASS__.'_filter_data') );
+        $action4 = new TDataGridAction([$this, 'onsite_original'],   ['site_original' => '{site_original}' ]);
 
         $action4->setLabel('Acessar portal');
         $action4->setImage('fa:external-link-alt green');
@@ -263,8 +256,6 @@ class GETmodelo extends TPage {
     public function onsite_original($param)
     {
        TScript::create('window.open("'.$param['site_original'].'","_blank")');
-       $param = $this->keepNavigation($param);
-        $this->onReload($param);
     }
 
     public function onView($param)
@@ -281,8 +272,7 @@ class GETmodelo extends TPage {
         $botaoLink->class = 'btn btn-primary';
         $botaoLink->add('Acessar Portal');
         new TMessage('info', "<h4>$titulo</h4> <br> Orgão responsavel: <b>$orgao</b> <br> Objeto : <b>$objeto</b><br> $botaoLink");
-        $param = $this->keepNavigation($param);
-        $this->onReload($param);
+        
     }
     
     public function onDelete($param)
@@ -320,9 +310,9 @@ class GETmodelo extends TPage {
         try {
             TTransaction::open('licitacoes');
 
-            $licitacao = new MinhasLicitacoes();
-            $licitacao->fromArray($param);
-            $licitacao->store();
+            //$licitacao = new MinhasLicitacoes();
+            //$licitacao->fromArray($param);
+            //$licitacao->store();
 
             $userid = TSession::getValue('userid');
             $criteria = new TCriteria;
@@ -366,6 +356,9 @@ class GETmodelo extends TPage {
             // Cria um critério de seleção de dados
             $criteria = new TCriteria;
             $criteria->setProperty('limit', $limit);
+
+            // atualiza ou recupera os parametros de paginação com dados da sessão
+            $param = $this->keepNavigation($param);
 
             if (isset($param['offset'])) {
                 $criteria->setProperty('offset', $param['offset']);

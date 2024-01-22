@@ -42,7 +42,7 @@ class licSalvas extends TPage
                 
                 foreach ($statuses as $statusOption) {
                     $params = [
-                        'id_licitacao' => $object->id_licitacao, 
+                        'identificador' => $object->identificador, 
                         'status_id' => $statusOption->id, 
                     ];
                 
@@ -57,15 +57,15 @@ class licSalvas extends TPage
 
         // Cria uma instância de TDataGridActionGroup
         // Cria a ação de acessar link externo
-        $external_link_action = new TDataGridAction([$this, 'onlinkExterno'], ['linkExterno' => '{linkExterno}']);
+        $external_link_action = new TDataGridAction([$this, 'onsite_original'],   ['site_original' => '{site_original}' ]);
         $external_link_action->setLabel('Acessar portal');
         $external_link_action->setImage('fa:external-link-alt green');
         // Cria a ação de remover
-        $remove_action = new TDataGridAction([$this, 'onRemove'], ['id_licitacao' => '{id_licitacao}']);
+        $remove_action = new TDataGridAction([$this, 'onRemove'], ['identificador' => '{identificador}']);
         $remove_action->setLabel('Remover');
         $remove_action->setImage('fa:trash red');
         // Cria a ação de baixar
-        $comment_action = new TDataGridAction([$this, 'onInputDialog'], ['id_licitacao' => '{id_licitacao}']);
+        $comment_action = new TDataGridAction([$this, 'onInputDialog'], ['identificador' => '{identificador}']);
         $comment_action->setLabel('Observações');
         $comment_action->setImage('fa:comments blue');
         // Adiciona as ações ao grupo de ações da DataGrid
@@ -97,10 +97,11 @@ class licSalvas extends TPage
         $input_search->setSize('100%');
         
         
-        $this->datagrid->enableSearch($input_search, 'id_licitacao, titulo, objeto, municipio, tipo, status');
+        $this->datagrid->enableSearch($input_search, 'identificador, titulo, objeto, municipio, tipo, status');
         $panel->addHeaderWidget($input_search);
         
         $panel->addHeaderWidget( $dropdown );
+        
         $vbox = new TVBox;
         $vbox->style = 'width: 100%';
         $vbox->add(new TXMLBreadCrumb('menu.xml', __CLASS__));
@@ -116,42 +117,59 @@ class licSalvas extends TPage
 
         $userId = TSession::getValue('userid');
 
-        // Primeira consulta para obter os IDs das licitações do usuário
+        // Primeira consulta para obter as licitações do usuário com status
         $criteriaUserLicitacoes = new TCriteria;
         $criteriaUserLicitacoes->add(new TFilter('user_id', '=', $userId));
 
         $repositoryUserLicitacoes = new TRepository('LicitacoesUser');
         $userLicitacoes = $repositoryUserLicitacoes->load($criteriaUserLicitacoes);
 
-        // MONTAR ARRAY DE IDS DAS LICITACOES DO USUARIO
-        $licitacaoIds = array();
+        // Montar array de licitações do usuário com status
+        $licitacaoInfo = array();
         if ($userLicitacoes) {
             foreach ($userLicitacoes as $userLicitacao) {
-                $licitacaoIds[] = $userLicitacao->licitacao_id;
+                $licitacaoInfo[] = array(
+                    'id' => $userLicitacao->licitacao_id,
+                    'status' => $userLicitacao->status
+                );
             }
         }
 
-        // Verifica se há IDs para buscar
-        if (count($licitacaoIds) == 0) {
+        // Verifica se há licitações para buscar
+        if (count($licitacaoInfo) == 0) {
             throw new Exception("Nenhuma licitação encontrada para o usuário.");
         }
+        $licitacaoIds = array_column($licitacaoInfo, 'id');
 
-        // Segunda consulta para buscar as licitações em MinhasLicitacoes
+        TTransaction::close();
+
+        TTransaction::open('licitacoesdb'); 
+        // Segunda consulta para buscar os dados das licitacoes conforme os ID's que o usuario tem
         $criteriaMinhasLicitacoes = new TCriteria;
-        $criteriaMinhasLicitacoes->add(new TFilter('id_licitacao', 'IN', $licitacaoIds));
+        $criteriaMinhasLicitacoes->add(new TFilter('identificador', 'IN', $licitacaoIds));
 
-        $repositoryMinhasLicitacoes = new TRepository('MinhasLicitacoes');
+        $repositoryMinhasLicitacoes = new TRepository('licitacoes');
         $minhasLicitacoes = $repositoryMinhasLicitacoes->load($criteriaMinhasLicitacoes);
 
+        TTransaction::Close();
         $this->datagrid->clear();
 
         if ($minhasLicitacoes) {
             foreach ($minhasLicitacoes as $minhaLicitacao) {
-                if ($minhaLicitacao->status >= 0){$this->datagrid->addItem($minhaLicitacao);}
+                foreach ($licitacaoInfo as $info) {
+                    if ($info['id'] == $minhaLicitacao->identificador) {
+                        $minhaLicitacao->status = $info['status']; // Adiciona o status ao objeto da licitação
+                        break;
+                    }
+                }
+
+                if ($minhaLicitacao->status >= 0) {
+                    $this->datagrid->addItem($minhaLicitacao);
+                }
             }
         }
 
-        TTransaction::close();
+        
     } catch (Exception $e) {
         new TMessage('error', $e->getMessage());
         TTransaction::rollback();
@@ -162,10 +180,7 @@ class licSalvas extends TPage
     // Implementar o método para exibir detalhes aqui
     public function onView($param)
     {
-        $id_licitacao = $param['id_licitacao'];
-        TTransaction::open('licitacoes');
-        
-
+       
     }
 
     public function show()
@@ -218,49 +233,48 @@ public function DeleteLicitacao($param)
     }
     $this->onReload();
 }
-public function onLinkExterno($param)
-{
-    TScript::create('window.open("'.$param['linkExterno'].'","_blank")');
-    
-}
-public function onDownload($param)
-{
-   
-}
-
-public function exportAsPDF($param)
+    public function onsite_original($param)
+        {
+        TScript::create('window.open("'.$param['site_original'].'","_blank")');
+        }
+    public function onDownload($param)
     {
-        try
-        {
-            // string with HTML contents
-            $html = clone $this->datagrid;
-            $contents = file_get_contents('app/resources/styles-print.html') . $html->getContents();
-            
-            // converts the HTML template into PDF
-            $dompdf = new \Dompdf\Dompdf();
-            $dompdf->loadHtml($contents);
-            $dompdf->setPaper('A4', 'portrait');
-            $dompdf->render();
-            
-            $file = 'app/output/minhas-licitacoes.pdf';
-            
-            file_put_contents($file, $dompdf->output());
-            
-            $window = TWindow::create('Export', 0.8, 0.8);
-            $object = new TElement('object');
-            $object->data  = $file;
-            $object->type  = 'application/pdf';
-            $object->style = "width: 100%; height:calc(100% - 10px)";
-            $object->add('O navegador não suporta a exibição deste conteúdo, <a style="color:#007bff;" target=_newwindow href="'.$object->data.'"> clique aqui para baixar</a>...');
-            
-            $window->add($object);
-            $window->show();
-        }
-        catch (Exception $e)
-        {
-            new TMessage('error', $e->getMessage());
-        }
+    
     }
+
+    public function exportAsPDF($param)
+        {
+            try
+            {
+                // string with HTML contents
+                $html = clone $this->datagrid;
+                $contents = file_get_contents('app/resources/styles-print.html') . $html->getContents();
+                
+                // converts the HTML template into PDF
+                $dompdf = new \Dompdf\Dompdf();
+                $dompdf->loadHtml($contents);
+                $dompdf->setPaper('A4', 'portrait');
+                $dompdf->render();
+                
+                $file = 'app/output/minhas-licitacoes.pdf';
+                
+                file_put_contents($file, $dompdf->output());
+                
+                $window = TWindow::create('Export', 0.8, 0.8);
+                $object = new TElement('object');
+                $object->data  = $file;
+                $object->type  = 'application/pdf';
+                $object->style = "width: 100%; height:calc(100% - 10px)";
+                $object->add('O navegador não suporta a exibição deste conteúdo, <a style="color:#007bff;" target=_newwindow href="'.$object->data.'"> clique aqui para baixar</a>...');
+                
+                $window->add($object);
+                $window->show();
+            }
+            catch (Exception $e)
+            {
+                new TMessage('error', $e->getMessage());
+            }
+        }
 
     public function exportAsCSV($param)
     {
@@ -292,13 +306,15 @@ public function exportAsPDF($param)
     {
         try
         {
-            
-            if (!isset($param['id_licitacao'])) {
+            if (!isset($param['identificador'])) {
                 throw new Exception("ID da licitação não definido.");
             }
 
             TTransaction::open('licitacoes');
-            $licitacao = MinhasLicitacoes::find($param['id_licitacao']);
+            //$licitacao = LicitacoesUser::find($param['id_licitacao']);
+            $licitacao = LicitacoesUser::where('licitacao_id', '=', $param['identificador'])
+                                   ->where('user_id', '=', TSession::getValue('userid'))
+                                   ->first();
             if ($licitacao) {
                 $licitacao->status = $param['status_id'];
                 $licitacao->store();
@@ -319,17 +335,20 @@ public function exportAsPDF($param)
     {
         $form = new BootstrapFormBuilder('input_form');
         
-        $id_licitacao = $param['id_licitacao'];
+        $id_licitacao = $param['identificador'];
 
         $comments_container = new TElement('div');
         $comments_container->{'style'} = 'height:200px; overflow:auto; border:1px solid gray; padding:10px; margin-bottom:10px;';
-    
         try
         {
             TTransaction::open('licitacoes');
 
             // Carrega os comentários existentes
-            $comentarios = Observacao::where('id_licitacao', '=', $id_licitacao)->load();
+            //$comentarios = Observacao::where('id_licitacao', '=', $id_licitacao)->load();
+            $comentarios = Observacao::where('id_licitacao', '=', $param['identificador'])
+                                   ->where('id_user', '=', TSession::getValue('userid'))
+                                   //->where('user_id', '=', TSession::getValue('userid'), TExpression::OR_OPERATOR)
+                                   ->load();
             // Lista os comentários existentes
             foreach ($comentarios as $comentario) {
                 $comment_div = new TElement('div');

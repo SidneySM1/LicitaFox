@@ -2,6 +2,7 @@
 require_once 'init.php';
 
 // AdiantiCoreApplication::setRouter(array('AdiantiRouteTranslator', 'translate'));
+AdiantiCoreApplication::setRouter(array('AdiantiRouteTranslator', 'translate'));
 AdiantiCoreApplication::setActionVerification(['SystemPermission', 'checkPermission']);
 
 class TApplication extends AdiantiCoreApplication

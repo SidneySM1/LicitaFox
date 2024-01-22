@@ -24,7 +24,7 @@ class AdiantiRouteTranslator
         
         // automatic parse .htaccess
         $routes = self::parseHtAccess();
-        
+        //$routes['class=GETmodelo']   = 'get';
         $keys = array_map('strlen', array_keys($routes));
         array_multisort($keys, SORT_DESC, $routes);
         

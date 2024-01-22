@@ -22,7 +22,7 @@ class licExcluidas extends TPage
 
         // Cria uma instância de TDataGridActionGroup
         // Cria a ação de acessar link externo
-        $external_link_action = new TDataGridAction([$this, 'onlinkExterno'], ['linkExterno' => '{linkExterno}']);
+        $external_link_action = new TDataGridAction([$this, 'onlinkExterno'], ['site_original' => '{site_original}']);
         $external_link_action->setLabel('Acessar portal');
         $external_link_action->setImage('fa:external-link-alt green');
         // Cria a ação de remover
@@ -167,8 +167,7 @@ class licExcluidas extends TPage
 }
 public function onLinkExterno($param)
 {
-    TScript::create('window.open("'.$param['linkExterno'].'","_blank")');
-    
+    TScript::create('window.open("'.$param['site_original'].'","_blank")');    
 }
 public function onDownload($param)
 {
