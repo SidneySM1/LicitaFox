@@ -8,6 +8,7 @@ class Estado extends TRecord
     public function __construct($id = NULL, $callObjectLoad = TRUE)
     {
         parent::__construct($id, $callObjectLoad);
+        parent::addAttribute('id_estado');
         parent::addAttribute('nome_estado');
         parent::addAttribute('sigla_estado');
     }

@@ -10,19 +10,22 @@ class licSalvas extends TPage
     public function __construct()
     {
         parent::__construct();
-
         // Cria a datagrid
         $this->datagrid = new BootstrapDatagridWrapper(new TDataGrid);
         $this->datagrid->style = 'width: 100%';
 
         $col_status = new TDataGridColumn('status', 'Status', 'center', '10%');
-
+        $col_abertura = new TDataGridColumn('abertura', 'Abertura', 'center', '10%');
+        $col_abertura->setTransformer(function($value, $object, $row) {
+            $rest = substr($value, -19, 10);    
+            return $rest; 
+        });
         // Define colunas da datagrid
-        $this->datagrid->addColumn(new TDataGridColumn('titulo', 'Título', 'left', '20%'));
+        $this->datagrid->addColumn(new TDataGridColumn('titulo', 'Título', 'left', '10%'));
         $this->datagrid->addColumn(new TDataGridColumn('municipio', 'Municipio', 'center', '10%'));
-        $this->datagrid->addColumn(new TDataGridColumn('tipo', 'Tipo', 'center', '10%'));
-        $this->datagrid->addColumn(new TDataGridColumn('objeto', 'Objeto', 'left', '40%'));
-        $this->datagrid->addColumn(new TDataGridColumn('abertura', 'Abertura', 'center', '10%'));
+        $this->datagrid->addColumn(new TDataGridColumn('modalidade', 'Tipo', 'center', '10%'));
+        $this->datagrid->addColumn(new TDataGridColumn('objeto', 'Objeto', 'left', '50%'));
+        $this->datagrid->addColumn($col_abertura);
         $this->datagrid->addColumn($col_status);
 
         // Definição dos status
@@ -95,7 +98,6 @@ class licSalvas extends TPage
         $input_search = new TEntry('input_search');
         $input_search->placeholder = _t('Search');
         $input_search->setSize('100%');
-        
         
         $this->datagrid->enableSearch($input_search, 'identificador, titulo, objeto, municipio, tipo, status');
         $panel->addHeaderWidget($input_search);
@@ -201,7 +203,7 @@ class licSalvas extends TPage
     $action->setParameters($param);  // passa o parâmetro adiante
 
     // Mostra uma caixa de diálogo ao usuário
-    new TQuestion("Deseja realmente remover a licitação {$param['id_licitacao']}?", $action);
+    new TQuestion("Deseja realmente remover a licitação {$param['identificador']}?", $action);
 }
 
 public function DeleteLicitacao($param)
@@ -210,20 +212,27 @@ public function DeleteLicitacao($param)
         TTransaction::open('licitacoes');
 
         // Verifica se a licitação existe
-        $licitacao = new MinhasLicitacoes($param['id_licitacao']);
+        //$licitacao = new MinhasLicitacoes($param['identificador']);
+        $licitacao = LicitacoesUser::where('licitacao_id', '=', $param['identificador'])
+                                   ->where('user_id', '=', TSession::getValue('userid'))
+                                   ->first();
         if ($licitacao) {
             // Insere a licitação na tabela de removidos
-            $licitacaoRemovida = new MinhasLicitacoesRemovidas();
-            $licitacaoRemovida->fromArray($licitacao->toArray());
-            $licitacaoRemovida->store();
+            //$licitacaoRemovida = new MinhasLicitacoesRemovidas();
+            //$licitacaoRemovida->fromArray($licitacao->toArray());
+            //$licitacaoRemovida->store();
 
+            $licitacao = LicitacoesUser::where('licitacao_id', '=', $param['identificador'])
+                                   ->where('user_id', '=', TSession::getValue('userid'))
+                                   ->first();
             // Remove a licitação da tabela original
-            $licitacao->delete();
+            $licitacao->status = -1;
+            $licitacao->store();
 
             TTransaction::close();
 
             // Mensagem de confirmação
-            new TMessage('info', "Licitação {$param['id_licitacao']} removida com sucesso e adicionada a lista de removidas.");
+            new TMessage('info', "Licitação {$param['identificador']} removida com sucesso e adicionada a lista de removidas.");
         } else {
             throw new Exception("Licitação não encontrada");
         }
@@ -380,7 +389,7 @@ public function DeleteLicitacao($param)
         // Ação para salvar o novo comentário
         $action_save_comment = new TAction([__CLASS__, 'onSaveComment']);
         $action_save_comment->setParameter('id_licitacao', $id_licitacao); // Passando id_licitacao como parâmetro
-        $form->addAction('Adicionar OBS', $action_save_comment, 'fa:save green');
+        $form->addAction('Adicionar Comentário', $action_save_comment, 'fa:comment gray');
         
         // Mostra o diálogo de entrada
         new TInputDialog('Observações para Licitação ' . $id_licitacao, $form);
@@ -400,7 +409,6 @@ public function DeleteLicitacao($param)
             $comment->store();
             
             TTransaction::close();
-
             // Dá feedback ao usuário ou atualiza a lista de comentários
             new TMessage('info', 'Comentário adicionado com sucesso!');
         }
@@ -408,6 +416,14 @@ public function DeleteLicitacao($param)
         {
             new TMessage('error', $e->getMessage());
         }
+    }
+    public function truncarTexto($texto, $limite = 140)
+    {
+        $texto = strip_tags($texto); 
+        if (mb_strlen($texto, 'UTF-8') > $limite) {
+            return mb_substr($texto, 0, $limite, 'UTF-8') . '...';
+        }
+        return $texto;
     }
 }
 ?>

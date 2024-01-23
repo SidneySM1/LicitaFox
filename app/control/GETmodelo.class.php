@@ -25,7 +25,7 @@ class GETmodelo extends TPage {
         parent::__construct();
 
         $this->form = new BootstrapFormBuilder('form_localidades');
-        $this->form->setFormTitle('Busca');
+        //$this->form->setFormTitle('Busca');
 
         //Definindo os obj para o form
         $uf = new TCombo('uf');
@@ -37,9 +37,15 @@ class GETmodelo extends TPage {
         }
         asort($items);
         $uf->addItems($items);
-        $uf->setSize('90%');
-        $uf->addValidation('UF', new TRequiredValidator);
         TTransaction::close();
+        $uf->setSize('75%');
+        $uf->setChangeAction(new TAction([$this, 'onMudaUF']));
+        
+        // Combo de Municípios (inicialmente vazio)
+        $municipios = new TCombo('mun');
+        $municipios->addItems(['' => '']);
+        $municipios->setSize('75%');
+      
 
         $data_insercao = new TDate('data_insercao');
         $data_insercao->setMask('yyyy-mm-dd');
@@ -83,7 +89,7 @@ class GETmodelo extends TPage {
         $palavra_chave->setSize('90%');
 
         // Adição de campos ao form
-        $this->form->addfields([new TLabel('UF:')], [$uf]);
+        $this->form->addFields([new TLabel('UF:')], [$uf],[new TLabel('Município:')], [$municipios]);
         $this->form->addFields([new TLabel('Data-Captura:')], [$data_insercao],[new Tlabel('Data-Prazo')], [$data_abertura]);
         $this->form->addFields([new TLabel('Modalidade:')], [$modalidade]);
         $this->form->addFields([new TLabel('Portal:')], [$portal]);
@@ -91,8 +97,28 @@ class GETmodelo extends TPage {
 
         
         /// MANTER DADOS NO FORM
-        $this->form->setData( TSession::getValue(__CLASS__.'_filter_data') );
+        
+        $data = TSession::getValue(__CLASS__.'_filter_data');
 
+        TTransaction::open('localidades');
+        $estadoId = $this->searchUf_Id($data->uf);
+        $municipios2 = array();
+        if ($estadoId) {
+            $criteriaMunicipio = new TCriteria;
+            $criteriaMunicipio->add(new TFilter('id_estado', '=', $estadoId));
+            $repositoryMunicipio = new TRepository('Municipio');
+            $objects = $repositoryMunicipio->load($criteriaMunicipio);
+            
+            if ($objects) {
+                foreach ($objects as $obj) {
+                    $municipios2[$obj->nome_municipio] = $obj->nome_municipio;
+                }
+                $municipios2 = ['' => ''] + $municipios2;
+            }
+            $municipios->addItems($municipios2);
+        }
+        TTransaction::close();
+        $this->form->setData( TSession::getValue(__CLASS__.'_filter_data') );
 
         $btn = $this->form->addAction(_t('Find'), new TAction([$this, 'onSearch']), 'fa:search');
         $btn->class = 'btn btn-sm btn-primary';
@@ -110,7 +136,7 @@ class GETmodelo extends TPage {
 
         $colunaObjeto = new TDataGridColumn('objeto', 'Objeto', 'left', '50%');
         $colunaObjeto->setTransformer(function ($value, $object, $row) {
-                        return $this->truncarTexto($value); // garantir que o $value é uma string, não um objeto
+                        return $this->truncarTexto($value);
                     });
         //$col_identificador    = new TDataGridColumn('identificador', 'Id', 'right', '10%');
         $col_titulo  = new TDataGridColumn('titulo', 'Titulo', 'left', '20%');
@@ -167,6 +193,7 @@ class GETmodelo extends TPage {
             'valor' => '{valor}',
             'id_portal' => '{id_portal}',
         ]+ (array)TSession::getValue(__CLASS__.'_filter_data'));
+
         $action3 = new TDataGridAction([$this, 'onInsert'], ['identificador' => '{identificador}']);        
                 
         $action1->setLabel('Ver info');
@@ -198,14 +225,10 @@ class GETmodelo extends TPage {
         $this->datagrid->createModel();
         //$this->datagrid->clear();
         
-        //$this->pageNavigation->setAction(new TAction([$this, 'onReload'], $formData));
-
         $this->pageNavigation = new TPageNavigation;
         $this->pageNavigation->setAction(new TAction([$this, 'onReload']));
         $this->pageNavigation->setWidth($this->datagrid->getWidth());
         //$this->pageNavigation->style = 'padding-top:0px; margin-right:10px;';
-
-        
 
         $vbox = new TVBox;
         $vbox->style = 'width: 100%';
@@ -223,6 +246,7 @@ class GETmodelo extends TPage {
     {
         // clear session filters
         TSession::setValue(__CLASS__.'_filter_estado',                 NULL);
+        TSession::setValue(__CLASS__.'_filter_municipio',                 NULL);
         TSession::setValue(__CLASS__.'_filter_objeto',          NULL);
         TSession::setValue(__CLASS__.'_filter_abertura',       NULL);
         TSession::setValue(__CLASS__.'_filter_modalidade',        NULL);
@@ -368,6 +392,9 @@ class GETmodelo extends TPage {
             if (TSession::getValue(__CLASS__.'_filter_estado')) {
                 $criteria->add(TSession::getValue(__CLASS__.'_filter_estado'));
             }
+            if (TSession::getValue(__CLASS__.'_filter_municipio')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_municipio'));
+            }
             if (TSession::getValue(__CLASS__.'_filter_objeto')) {
                 $criteria->add(TSession::getValue(__CLASS__.'_filter_objeto'));
             }
@@ -399,6 +426,10 @@ class GETmodelo extends TPage {
             if (TSession::getValue(__CLASS__.'_filter_estado')) {
                 $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_estado'));
             }
+            // Aplica os mesmos filtros para contar os registros
+            if (TSession::getValue(__CLASS__.'_filter_municipio')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_municipio'));
+            }
             if (TSession::getValue(__CLASS__.'_filter_objeto')) {
                 $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_objeto'));
             }
@@ -429,14 +460,22 @@ class GETmodelo extends TPage {
     public function onSearch($param)
     {
         // Obtém os dados do formulário
+        try{
+            $this->form->validate();
+        }catch (Exception $e) {
+            new TMessage('error', $e->getMessage());
+        }
         $this->onClearSession();
         self::clearNavigation();
         $data = $this->form->getData();
-        
 
         // Armazena os filtros na sessão
         if (isset($data->uf) AND $data->uf){
             TSession::setValue(__CLASS__.'_filter_estado', new TFilter('estado', 'like', $data->uf));
+            $this->qtd_filtros++;
+        }
+        if (isset($data->mun) AND $data->mun){
+            TSession::setValue(__CLASS__.'_filter_municipio', new TFilter('municipio', 'like', $data->mun));
             $this->qtd_filtros++;
         }
         if (isset($data->palavra_chave) AND $data->palavra_chave){
@@ -461,13 +500,69 @@ class GETmodelo extends TPage {
 
         TSession::setValue(__CLASS__.'_filter_counter', $this->qtd_filtros);
         
-        // fill the form with data again
+        // MANTER DADOS NO FORM
         $this->form->setData($data);
-        
-        // keep the search data in the session
+        // E SESSÃO
         TSession::setValue(__CLASS__.'_filter_data', $data);
-        //$this->onReload($param);
         $this->resetParamAndOnReload();
+    }
+    public static function onMudaUF($param)
+    {
+        try {
+            TTransaction::open('localidades');
+
+            // Primeiro, encontre o ID do estado com base na sigla
+            $estadoId = null;
+            if (!empty($param['uf'])) {
+                $criteriaEstado = new TCriteria;
+                $criteriaEstado->add(new TFilter('sigla_estado', '=', $param['uf']));
+                $repositoryEstado = new TRepository('Estado');
+                $estados = $repositoryEstado->load($criteriaEstado);
+
+                if (count($estados) > 0) {
+                    $estadoId = $estados[0]->id_estado; // Supondo que 'id' é o campo de identificação na tabela Estado
+
+                }
+            }
+
+            // Em seguida, carregue os municípios com base no ID do estado
+            $municipios = array();
+            if ($estadoId) {
+                $criteriaMunicipio = new TCriteria;
+                $criteriaMunicipio->add(new TFilter('id_estado', '=', $estadoId));
+                $repositoryMunicipio = new TRepository('Municipio');
+                $objects = $repositoryMunicipio->load($criteriaMunicipio);
+                
+
+                if ($objects) {
+                    foreach ($objects as $obj) {
+                        $municipios[$obj->nome_municipio] = $obj->nome_municipio;
+                    }
+                    $municipios = ['' => ''] + $municipios;
+                }
+            }
+
+            TTransaction::close();
+
+            // Atualiza o combo de municípios
+            TCombo::reload('form_localidades', 'mun', $municipios);
+        } catch (Exception $e) {
+            new TMessage('error', $e->getMessage());
+        }
+    }
+    public function searchUf_Id($uf){
+        if (!empty($uf)) {
+            $criteriaEstado = new TCriteria;
+            $criteriaEstado->add(new TFilter('sigla_estado', '=', $uf));
+            $repositoryEstado = new TRepository('Estado');
+            $estados = $repositoryEstado->load($criteriaEstado);
+
+            if (count($estados) > 0) {
+                $estadoId = $estados[0]->id_estado; // Supondo que 'id' é o campo de identificação na tabela Estado
+                return $estadoId;
+            }
+            return '';
+        }
     }
 }
 
