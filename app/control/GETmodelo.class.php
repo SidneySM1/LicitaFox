@@ -2,7 +2,7 @@
 $zsuper;
 class GETmodelo extends TPage {
     private $form, $datagrid, $pageNavigation, $loaded=false;
-    private int $limit = 20;
+    private int $limit = 10;
     private $panel;
 
     use ListTrait;
@@ -99,25 +99,27 @@ class GETmodelo extends TPage {
         /// MANTER DADOS NO FORM
         
         $data = TSession::getValue(__CLASS__.'_filter_data');
-
-        TTransaction::open('localidades');
-        $estadoId = $this->searchUf_Id($data->uf);
-        $municipios2 = array();
-        if ($estadoId) {
-            $criteriaMunicipio = new TCriteria;
-            $criteriaMunicipio->add(new TFilter('id_estado', '=', $estadoId));
-            $repositoryMunicipio = new TRepository('Municipio');
-            $objects = $repositoryMunicipio->load($criteriaMunicipio);
-            
-            if ($objects) {
-                foreach ($objects as $obj) {
-                    $municipios2[$obj->nome_municipio] = $obj->nome_municipio;
+        if (!empty($data->uf)){
+            TTransaction::open('localidades');
+            $estadoId = $this->searchUf_Id($data->uf);
+            $municipios2 = array();
+            if ($estadoId) {
+                $criteriaMunicipio = new TCriteria;
+                $criteriaMunicipio->add(new TFilter('id_estado', '=', $estadoId));
+                $repositoryMunicipio = new TRepository('Municipio');
+                $objects = $repositoryMunicipio->load($criteriaMunicipio);
+                
+                if ($objects) {
+                    foreach ($objects as $obj) {
+                        $municipios2[$obj->nome_municipio] = $obj->nome_municipio;
+                    }
+                    $municipios2 = ['' => ''] + $municipios2;
                 }
-                $municipios2 = ['' => ''] + $municipios2;
+                $municipios->addItems($municipios2);
             }
-            $municipios->addItems($municipios2);
+            TTransaction::close();
         }
-        TTransaction::close();
+        
         $this->form->setData( TSession::getValue(__CLASS__.'_filter_data') );
 
         $btn = $this->form->addAction(_t('Find'), new TAction([$this, 'onSearch']), 'fa:search');
@@ -375,7 +377,7 @@ class GETmodelo extends TPage {
 
             $repository = new TRepository('licitacoes');
 
-            $limit = 10; // Defina o número de registros por página
+            $limit = $this->limit;
 
             // Cria um critério de seleção de dados
             $criteria = new TCriteria;
@@ -496,7 +498,6 @@ class GETmodelo extends TPage {
         if (isset($data->id_portal) AND $data->id_portal) {
             TSession::setValue(__CLASS__.'_filter_portal', new TFilter('portal_id', '=', $data->id_portal));
         }
-
 
         TSession::setValue(__CLASS__.'_filter_counter', $this->qtd_filtros);
         
