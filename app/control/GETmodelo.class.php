@@ -55,6 +55,10 @@ class GETmodelo extends TPage {
         $data_abertura->setMask('yyyy-mm-dd');
         $data_abertura->setSize('75%');
 
+        $data_abertura_fim = new TDate('data_abertura_fim');
+        $data_abertura_fim->setMask('yyyy-mm-dd');
+        $data_abertura_fim->setSize('75%');
+
         $modalidade = new TCombo('modalidade');
         $modalidade->addItems([
             '0' => 'Sem modalidade definida',
@@ -90,10 +94,11 @@ class GETmodelo extends TPage {
 
         // Adição de campos ao form
         $this->form->addFields([new TLabel('UF:')], [$uf],[new TLabel('Município:')], [$municipios]);
-        $this->form->addFields([new TLabel('Data-Captura:')], [$data_insercao],[new Tlabel('Data-Prazo')], [$data_abertura]);
+        $this->form->addFields([new TLabel('Abertura do processo (De - Até):')], [$data_abertura],[new Tlabel('Data-abertura até')], [$data_abertura_fim]);
         $this->form->addFields([new TLabel('Modalidade:')], [$modalidade]);
         $this->form->addFields([new TLabel('Portal:')], [$portal]);
         $this->form->addfields([new TLabel('Palavra-chave:')], [$palavra_chave]);
+        $this->form->addFields([new TLabel('Data-Captura:')], [$data_insercao]);
 
         
         /// MANTER DADOS NO FORM
