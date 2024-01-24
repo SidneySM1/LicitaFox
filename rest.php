@@ -29,7 +29,7 @@ class AdiantiRestServer
             {
                 array_walk_recursive($response, ['AdiantiStringConversion', 'assureUnicode']);
             }
-            return json_encode( array('status' => 'success', 'RegCont' => count($response),'data' => $response));
+            return json_encode( array('status' => 'success', 'RegCont' => count($response),'data' => $response), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
         catch (Exception $e)
         {
