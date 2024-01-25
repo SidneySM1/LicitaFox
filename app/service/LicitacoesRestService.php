@@ -25,11 +25,22 @@ class LicitacoesRestService extends AdiantiRecordService
         if (isset($request['estado']) AND ($request['estado'] != '')){
             TTransaction::open('licitacoesdb');
             $response = array();
+
+            $dataFim = !empty($request['aberturaFim']) ? $request['aberturaFim'] : '2124-12-31';
             
-            $all = Licitacoes::where('estado', '=', $request['estado'])
+            if (isset($request['abertura']) AND ($request['abertura'] != '')){
+                $all = Licitacoes::where('estado', '=', $request['estado'])
+                                    ->where('objeto', 'like', "%{$request['objeto']}%")
+                                    ->where('abertura', '>=', $request['abertura'] . ' 00:00')
+                                    ->where('abertura', '<=', $dataFim . ' 23:59')
+                                    ->load();
+            }
+            else{
+                $all = Licitacoes::where('estado', '=', $request['estado'])
                                     ->where('objeto', 'like', "%{$request['objeto']}%")
                                     ->load();
-
+            }
+            
             foreach ($all as $product)
             {
                 $response[] = $product->toArray();
