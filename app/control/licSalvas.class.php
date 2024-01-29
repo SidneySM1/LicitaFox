@@ -28,7 +28,7 @@ class licSalvas extends TPage
         $this->datagrid->addColumn($col_abertura);
         $col_abertura->setTransformer(function($valor, $objeto, $linha, $celula){return $valor = TDate::date2br($valor); });
         $this->datagrid->addColumn($col_status);
-
+        
         // Definição dos status
         $statuses = [
             0 => (object)['id' => 0, 'name' => 'Adicionado', 'color' => '#525252'],

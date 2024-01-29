@@ -275,8 +275,12 @@ class WelcomeView extends TPage
 <?php 
 echo(new TXMLBreadCrumb('menu.xml', 'WelcomeView'));
 
+$hoje = date('Y-m-d');
+$mesPassado = date('Y-m-d', strtotime($hoje. ' - 30 days'));
 $apiKey = 'e16c0d9d5d3341b59ea58fc3982fd3b0';
-$apiUrl = "https://newsapi.org/v2/everything?q=licitacoes&from=2024-01-01&sortBy=publishedAt&apiKey={$apiKey}";
+
+//TODAS NOTICIAS SOBRE LICITAÇÕES NOS ULTIMOS 30 DIAS
+$apiUrl = "https://newsapi.org/v2/everything?q=licitacoes&from={$mesPassado}&sortBy=publishedAt&apiKey={$apiKey}";
 
 $curl = curl_init($apiUrl);
 $headers = [
