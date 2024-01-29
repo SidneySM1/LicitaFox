@@ -48,15 +48,15 @@ class GETmodelo extends TPage {
       
 
         $data_insercao = new TDate('data_insercao');
-        $data_insercao->setMask('yyyy-mm-dd');
+        $data_insercao->setMask('dd/mm/yyyy');
         $data_insercao->setSize('75%');
 
         $data_abertura = new TDate('data_abertura');
-        $data_abertura->setMask('yyyy-mm-dd');
+        $data_abertura->setMask('dd/mm/yyyy');
         $data_abertura->setSize('75%');
 
         $data_abertura_fim = new TDate('data_abertura_fim');
-        $data_abertura_fim->setMask('yyyy-mm-dd');
+        $data_abertura_fim->setMask('dd/mm/yyyy');
         $data_abertura_fim->setSize('75%');
 
         $modalidade = new TCombo('modalidade');
@@ -97,8 +97,8 @@ class GETmodelo extends TPage {
         $this->form->addFields([new TLabel('Abertura do processo (De - Até):')], [$data_abertura],[new Tlabel('Data-abertura até')], [$data_abertura_fim]);
         $this->form->addFields([new TLabel('Modalidade:')], [$modalidade]);
         $this->form->addFields([new TLabel('Portal:')], [$portal]);
-        $this->form->addfields([new TLabel('Palavra-chave:')], [$palavra_chave]);
-        $this->form->addFields([new TLabel('Data-Captura:')], [$data_insercao]);
+        $this->form->addfields([new TLabel('Palavra-chave:')], [$palavra_chave],[new TLabel('Data-Captura:')], [$data_insercao]);
+        //$this->form->addFields([new TLabel('Data-Captura:')], [$data_insercao]);
 
         
         /// MANTER DADOS NO FORM
@@ -132,7 +132,6 @@ class GETmodelo extends TPage {
         //$this->form->addAction('Limpar', new TAction([$this, 'onClear']), 'fa:times red');
         $expandir = $this->form->addExpandButton('Expandir', '', false);
         //$expandir->start_hidden = true;
-
         
 
         /// TABELA AQUI
@@ -150,7 +149,8 @@ class GETmodelo extends TPage {
         $col_municipio = new TDataGridColumn('municipio', 'Cidade', 'center', '10%');
         $col_data = new TDataGridColumn('abertura', 'Abertura', 'center','10%');
         $col_data->setTransformer(function($value, $object, $row) {
-            $rest = substr($value, -19, 10);    
+            //$rest = substr($value, -19, 10); 
+            $rest = TDate::date2br($value);
             return $rest; 
         });
 
@@ -173,6 +173,7 @@ class GETmodelo extends TPage {
         $this->datagrid->addColumn($col_municipio);
         $this->datagrid->addColumn($colunaObjeto);
         $this->datagrid->addColumn($col_data);
+        
 
         $col_titulo->setAction(new TAction([$this, 'onReload']), ['order' => 'titulo']);
         $col_data->setAction(new TAction([$this, 'onReload']), ['order' => 'abertura']);
@@ -252,16 +253,17 @@ class GETmodelo extends TPage {
     public function onClearSession()
     {
         // clear session filters
-        TSession::setValue(__CLASS__.'_filter_estado',                 NULL);
-        TSession::setValue(__CLASS__.'_filter_municipio',                 NULL);
-        TSession::setValue(__CLASS__.'_filter_objeto',          NULL);
+        TSession::setValue(__CLASS__.'_filter_estado',         NULL);
+        TSession::setValue(__CLASS__.'_filter_municipio',      NULL);
+        TSession::setValue(__CLASS__.'_filter_objeto',         NULL);
         TSession::setValue(__CLASS__.'_filter_abertura',       NULL);
-        TSession::setValue(__CLASS__.'_filter_modalidade',        NULL);
-        TSession::setValue(__CLASS__.'_filter_portal',        NULL);
-        TSession::setValue(__CLASS__.'_filter_publicado',        NULL);
+        TSession::setValue(__CLASS__.'_filter_abertura_fim',       NULL);
+        TSession::setValue(__CLASS__.'_filter_modalidade',     NULL);
+        TSession::setValue(__CLASS__.'_filter_portal',         NULL);
+        TSession::setValue(__CLASS__.'_filter_publicado',      NULL);
 
-        TSession::setValue(__CLASS__.'_filter_data',               NULL);
-        TSession::setValue(__CLASS__.'_filter_counter',            0);
+        TSession::setValue(__CLASS__.'_filter_data',           NULL);
+        TSession::setValue(__CLASS__.'_filter_counter',        0);
     }
     
     function show()
@@ -408,6 +410,9 @@ class GETmodelo extends TPage {
             if (TSession::getValue(__CLASS__.'_filter_abertura')) {
                 $criteria->add(TSession::getValue(__CLASS__.'_filter_abertura'));
             }
+            if (TSession::getValue(__CLASS__.'_filter_abertura_fim')) {
+                $criteria->add(TSession::getValue(__CLASS__.'_filter_abertura_fim'));
+            }
             if (TSession::getValue(__CLASS__.'_filter_publicado')) {
                 $criteria->add(TSession::getValue(__CLASS__.'_filter_publicado'));
             }
@@ -417,7 +422,7 @@ class GETmodelo extends TPage {
             if (TSession::getValue(__CLASS__.'_filter_modalidade')) {
                 $criteria->add(TSession::getValue(__CLASS__.'_filter_modalidade'));
             }
-
+            $criteria->setProperty('order', 'abertura ASC');
             // Carrega os objetos conforme o critério
             $licitacoes = $repository->load($criteria);
             $this->datagrid->clear();
@@ -442,6 +447,9 @@ class GETmodelo extends TPage {
             }
             if (TSession::getValue(__CLASS__.'_filter_abertura')) {
                 $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_abertura'));
+            }
+            if (TSession::getValue(__CLASS__.'_filter_abertura_fim')) {
+                $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_abertura_fim'));
             }
             if (TSession::getValue(__CLASS__.'_filter_publicado')) {
                 $criteriaCount->add(TSession::getValue(__CLASS__.'_filter_publicado'));
@@ -490,11 +498,16 @@ class GETmodelo extends TPage {
             $this->qtd_filtros++;
         }
         if (isset($data->data_abertura) AND $data->data_abertura){
-            TSession::setValue(__CLASS__.'_filter_abertura', new TFilter('abertura', 'like', "$data->data_abertura %"));
+            TSession::setValue(__CLASS__.'_filter_abertura', new TFilter('abertura', '>=', TDate::date2us($data->data_abertura) . ' 00:00' ));
+            $this->qtd_filtros++;
+        }
+        if (isset($data->data_abertura_fim) AND $data->data_abertura_fim){
+            TSession::setValue(__CLASS__.'_filter_abertura_fim', new TFilter('abertura', '<=', TDate::date2us($data->data_abertura_fim) . ' 23:59' ));
             $this->qtd_filtros++;
         }
         if (isset($data->data_insercao) AND $data->data_insercao){
-            TSession::setValue(__CLASS__.'_filter_publicado', new TFilter('publicado_em', 'like', "$data->data_insercao %"));
+            $data_insercao = TDate::date2us($data->data_insercao);
+            TSession::setValue(__CLASS__.'_filter_publicado', new TFilter('publicado_em', 'like', "$data_insercao %"));
             $this->qtd_filtros++;
         }
         if (isset($data->modalidade) AND $data->modalidade) {

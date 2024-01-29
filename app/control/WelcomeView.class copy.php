@@ -292,42 +292,17 @@ curl_close($curl);
 $noticias = json_decode($response);
 
 
-$userId = TSession::getValue('userid');
+
 TTransaction::open('licitacoes');
 
-// Primeira consulta para obter as licitações do usuário com status
-$criteriaUserLicitacoes = new TCriteria;
-$criteriaUserLicitacoes->add(new TFilter('user_id', '=', $userId));
+$repository = new TRepository('MinhasLicitacoes');
 
-$repositoryUserLicitacoes = new TRepository('LicitacoesUser');
-$userLicitacoes = $repositoryUserLicitacoes->load($criteriaUserLicitacoes);
-
-// Montar array de licitações do usuário com status
-$licitacaoInfo = array();
-if ($userLicitacoes) {
-    foreach ($userLicitacoes as $userLicitacao) {
-        if ($userLicitacao->status >= 0){
-            $licitacaoInfo[] = array(
-                'id' => $userLicitacao->licitacao_id,
-                'status' => $userLicitacao->status
-            );
-        }
-    }
-}
-$licitacaoIds = array_column($licitacaoInfo, 'id');
-TTransaction::close(); 
-
-
-TTransaction::open('licitacoesdb');
-$repository = new TRepository('licitacoes');
 $criteria = new TCriteria;
-
-$criteria->setProperty('order', 'abertura ASC');
+$criteria->setProperty('order', 'abertura_datetime ASC');
 $criteria->setProperty('limit', 3);
-$criteria->add(new Tfilter('identificador', 'IN', $licitacaoIds));
 
 $objects = $repository->load($criteria); 
-TTransaction::close(); 
+
 
 ?>
 <div class="container mt-4">
@@ -381,9 +356,8 @@ TTransaction::close();
                             <div class="cardLic">
                                 <div class="card-body">
                                     <h5 class="card-title"><?php echo "$obj->titulo" ?></h5>
-                                    <?php $abertura = TDate::date2br($obj->abertura);?>
-                                    <p class="card-text"><?php echo "Abertura em: $abertura" ?></p>
-                                    <a href="<?php echo "$obj->site_original" ?>" target="_blank" class="btn btn-primary">Portal</a>
+                                    <p class="card-text"><?php echo "Abertura em: $obj->abertura" ?></p>
+                                    <a href="<?php echo "$obj->linkExterno" ?>" target="_blank" class="btn btn-primary">Portal</a>
                                 </div>
                             </div>
                         </div>

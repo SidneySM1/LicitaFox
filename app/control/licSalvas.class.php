@@ -26,14 +26,16 @@ class licSalvas extends TPage
         $this->datagrid->addColumn(new TDataGridColumn('modalidade', 'Tipo', 'center', '10%'));
         $this->datagrid->addColumn(new TDataGridColumn('objeto', 'Objeto', 'left', '50%'));
         $this->datagrid->addColumn($col_abertura);
+        $col_abertura->setTransformer(function($valor, $objeto, $linha, $celula){return $valor = TDate::date2br($valor); });
         $this->datagrid->addColumn($col_status);
 
         // Definição dos status
         $statuses = [
             0 => (object)['id' => 0, 'name' => 'Adicionado', 'color' => '#525252'],
             1 => (object)['id' => 1, 'name' => 'Participando', 'color' => '#FFC107'],
-            2 => (object)['id' => 2, 'name' => 'Aprovado', 'color' => '#28A745'],
-            3 => (object)['id' => 3, 'name' => 'Rejeitado', 'color' => '#DC3545'],
+            2 => (object)['id' => 2, 'name' => 'Analise de edital', 'color' => '#2B85DF'],
+            3 => (object)['id' => 3, 'name' => 'Aprovado', 'color' => '#28A745'],
+            4 => (object)['id' => 4, 'name' => 'Rejeitado', 'color' => '#DC3545'],
             
         ];
         $col_status->setTransformer( function($value, $object, $row, $cell) use ($statuses) {
@@ -113,71 +115,69 @@ class licSalvas extends TPage
     }
 
     public function onReload($param = NULL)
-{
-    try {
-        TTransaction::open('licitacoes'); 
+    {
+        try {
+            TTransaction::open('licitacoes'); 
 
-        $userId = TSession::getValue('userid');
+            $userId = TSession::getValue('userid');
 
-        // Primeira consulta para obter as licitações do usuário com status
-        $criteriaUserLicitacoes = new TCriteria;
-        $criteriaUserLicitacoes->add(new TFilter('user_id', '=', $userId));
+            // Primeira consulta para obter as licitações do usuário com status
+            $criteriaUserLicitacoes = new TCriteria;
+            $criteriaUserLicitacoes->add(new TFilter('user_id', '=', $userId));
 
-        $repositoryUserLicitacoes = new TRepository('LicitacoesUser');
-        $userLicitacoes = $repositoryUserLicitacoes->load($criteriaUserLicitacoes);
+            $repositoryUserLicitacoes = new TRepository('LicitacoesUser');
+            $userLicitacoes = $repositoryUserLicitacoes->load($criteriaUserLicitacoes);
 
-        // Montar array de licitações do usuário com status
-        $licitacaoInfo = array();
-        if ($userLicitacoes) {
-            foreach ($userLicitacoes as $userLicitacao) {
-                $licitacaoInfo[] = array(
-                    'id' => $userLicitacao->licitacao_id,
-                    'status' => $userLicitacao->status
-                );
+            // Montar array de licitações do usuário com status
+            $licitacaoInfo = array();
+            if ($userLicitacoes) {
+                foreach ($userLicitacoes as $userLicitacao) {
+                    $licitacaoInfo[] = array(
+                        'id' => $userLicitacao->licitacao_id,
+                        'status' => $userLicitacao->status
+                    );
+                }
             }
-        }
 
-        // Verifica se há licitações para buscar
-        if (count($licitacaoInfo) == 0) {
-            throw new Exception("Nenhuma licitação encontrada para o usuário.");
-        }
-        $licitacaoIds = array_column($licitacaoInfo, 'id');
+            // Verifica se há licitações para buscar
+            if (count($licitacaoInfo) == 0) {
+                throw new Exception("Nenhuma licitação encontrada para o usuário.");
+            }
+            $licitacaoIds = array_column($licitacaoInfo, 'id');
+            TTransaction::close();
 
-        TTransaction::close();
+            TTransaction::open('licitacoesdb'); 
+            // Segunda consulta para buscar os dados das licitacoes conforme os ID's que o usuario tem
+            $criteriaMinhasLicitacoes = new TCriteria;
+            $criteriaMinhasLicitacoes->add(new TFilter('identificador', 'IN', $licitacaoIds));
 
-        TTransaction::open('licitacoesdb'); 
-        // Segunda consulta para buscar os dados das licitacoes conforme os ID's que o usuario tem
-        $criteriaMinhasLicitacoes = new TCriteria;
-        $criteriaMinhasLicitacoes->add(new TFilter('identificador', 'IN', $licitacaoIds));
+            $repositoryMinhasLicitacoes = new TRepository('licitacoes');
+            $minhasLicitacoes = $repositoryMinhasLicitacoes->load($criteriaMinhasLicitacoes);
 
-        $repositoryMinhasLicitacoes = new TRepository('licitacoes');
-        $minhasLicitacoes = $repositoryMinhasLicitacoes->load($criteriaMinhasLicitacoes);
+            TTransaction::Close();
+            $this->datagrid->clear();
 
-        TTransaction::Close();
-        $this->datagrid->clear();
+            if ($minhasLicitacoes) {
+                foreach ($minhasLicitacoes as $minhaLicitacao) {
+                    foreach ($licitacaoInfo as $info) {
+                        if ($info['id'] == $minhaLicitacao->identificador) {
+                            $minhaLicitacao->status = $info['status']; // Adiciona o status ao objeto da licitação
+                            break;
+                        }
+                    }
 
-        if ($minhasLicitacoes) {
-            foreach ($minhasLicitacoes as $minhaLicitacao) {
-                foreach ($licitacaoInfo as $info) {
-                    if ($info['id'] == $minhaLicitacao->identificador) {
-                        $minhaLicitacao->status = $info['status']; // Adiciona o status ao objeto da licitação
-                        break;
+                    if ($minhaLicitacao->status >= 0) {
+                        $this->datagrid->addItem($minhaLicitacao);
                     }
                 }
-
-                if ($minhaLicitacao->status >= 0) {
-                    $this->datagrid->addItem($minhaLicitacao);
-                }
             }
+            
+        } catch (Exception $e) {
+            new TMessage('error', $e->getMessage());
+            TTransaction::rollback();
         }
-
-        
-    } catch (Exception $e) {
-        new TMessage('error', $e->getMessage());
-        TTransaction::rollback();
+        $this->loaded = true;
     }
-    $this->loaded = true;
-}
 
     // Implementar o método para exibir detalhes aqui
     public function onView($param)
