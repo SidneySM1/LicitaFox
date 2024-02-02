@@ -1,5 +1,7 @@
 <?php
+
 namespace Adianti\Database;
+
 
 use Adianti\Core\AdiantiCoreTranslator;
 use PDO;
@@ -213,7 +215,11 @@ class TConnection
                 }
                 break;
             case 'odbc':
-                $conn = new PDO("odbc:".substr($opts,1));
+                //var_dump($opts);
+                //var_dump($name);
+                //$conn = new PDO("odbc:".substr($opts,1));
+                $conn = new PDO("odbc:{$name}");
+
                 break;
             default:
                 throw new Exception(AdiantiCoreTranslator::translate('Driver not found') . ': ' . $type);

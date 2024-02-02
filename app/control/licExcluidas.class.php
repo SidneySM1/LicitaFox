@@ -140,35 +140,32 @@ class licExcluidas extends TPage
         parent::show();
     }
 
-
-
-
     // Para ações individuais de cada licitação
     public function onRemove($param)
-{
-    try {
-        TTransaction::open('licitacoes');
+    {
+        try {
+            TTransaction::open('licitacoes');
 
-        // Primeiro, é necessário verificar se a licitação existe
-        $licitacao = new MinhasLicitacoesRemovidas($param['id_licitacao']);
-        if ($licitacao) {
-            // Remove a licitação da tabela de removidas
-            $licitacao->delete();
-            TTransaction::close();
-            new TMessage('info', "Licitação {$param['id_licitacao']} liberada.");
-        } else {
-            throw new Exception("Licitação não encontrada");
+            // Primeiro, é necessário verificar se a licitação existe
+            $licitacao = new MinhasLicitacoesRemovidas($param['id_licitacao']);
+            if ($licitacao) {
+                // Remove a licitação da tabela de removidas
+                $licitacao->delete();
+                TTransaction::close();
+                new TMessage('info', "Licitação {$param['id_licitacao']} liberada.");
+            } else {
+                throw new Exception("Licitação não encontrada");
+            }
+        } catch (Exception $e) {
+            TTransaction::rollback();
+            new TMessage('error', $e->getMessage());
         }
-    } catch (Exception $e) {
-        TTransaction::rollback();
-        new TMessage('error', $e->getMessage());
+        $this->onReload();
     }
-    $this->onReload();
-}
-public function onLinkExterno($param)
-{
-    TScript::create('window.open("'.$param['linkExterno'].'","_blank")');    
-}
+    public function onLinkExterno($param)
+    {
+        TScript::create('window.open("'.$param['linkExterno'].'","_blank")');    
+    }
 public function onDownload($param)
 {
    

@@ -9,11 +9,11 @@ use PDO;
 /**
  * Provides an Interface to create SELECT statements
  *
- * @version    7.6
+ * @version    7.0
  * @package    database
  * @author     Pablo Dall'Oglio
  * @copyright  Copyright (c) 2006 Adianti Solutions Ltd. (http://www.adianti.com.br)
- * @license    https://adiantiframework.com.br/license
+ * @license    http://www.adianti.com.br/framework-license
  */
 class TSqlSelect extends TSqlStatement
 {
@@ -37,16 +37,7 @@ class TSqlSelect extends TSqlStatement
     {
         $conn = TTransaction::get();
         $driver = $conn->getAttribute(PDO::ATTR_DRIVER_NAME);
-
-        if ($this->criteria)
-        {
-            $dbInfo = TTransaction::getDatabaseInfo();
-            if(isset($dbInfo['case']) AND $dbInfo['case'] == 'insensitive')
-            {
-                $this->criteria->setCaseInsensitive(TRUE);
-            }
-        }
-
+        
         if (in_array($driver, array('mssql', 'dblib', 'sqlsrv')))
         {
             return $this->getSqlServerInstruction( $prepared );
@@ -59,6 +50,11 @@ class TSqlSelect extends TSqlStatement
         {
             return $this->getInterbaseInstruction( $prepared );
         }
+        else if (in_array($driver, array('odbc')))
+        {
+            return $this->getOdbcInstruction( $prepared );
+        }
+
         else
         {
             return $this->getStandardInstruction( $prepared );
@@ -69,6 +65,70 @@ class TSqlSelect extends TSqlStatement
      * Returns the SELECT statement as an string for standard open source drivers
      * @param $prepared Return a prepared Statement
      */
+    public function getOdbcInstruction( $prepared )
+    {
+
+        // get the criteria properties
+        //$order     = $this->criteria->getProperty('order');
+        //$group     = $this->criteria->getProperty('group');
+        //$limit     = (int) $this->criteria->getProperty('limit');
+        //$offset    = (int) $this->criteria->getProperty('offset');
+        //$direction = in_array($this->criteria->getProperty('direction'), array('asc', 'desc')) ? $this->criteria->getProperty('direction') : '';
+
+        $order     = [];
+        $group     = [];
+        $limit     = (int) [];
+        $offset    = (int) [];
+        $direction = ['asc'];
+
+
+        // creates the SELECT instruction
+        $this->sql  = 'SELECT ';
+
+        if ($limit)
+        {
+            $this->sql .= ' TOP ' . $limit .' ';
+        }
+        if ($offset)
+        {
+            $this->sql .= ' START AT ' . $offset .' ';
+        }
+
+        // concatenate the column names
+        $this->sql .= implode(',', $this->columns);
+        // concatenate the entity name
+        $this->sql .= ' FROM ' . $this->entity;
+        
+        // concatenate the criteria (WHERE)
+        if ($this->criteria)
+        {
+            $expression = $this->criteria->dump( $prepared );
+            if ($expression)
+            {
+                $this->sql .= ' WHERE ' . $expression;
+            }
+            
+            
+            if ($group)
+            {
+                $this->sql .= ' GROUP BY ' . $group;
+            }
+            if ($order)
+            {
+                $this->sql .= ' ORDER BY ' . $order . ' ' . $direction;
+            }
+        }
+        
+        //echo 'odbc select ' . $this->sql;
+        // return the SQL statement
+        return $this->sql;
+    }
+    
+    /**
+     * Returns the SELECT statement as an string for standard open source drivers
+     * @param $prepared Return a prepared Statement
+     */
+     
     public function getStandardInstruction( $prepared )
     {
         // creates the SELECT instruction
@@ -96,7 +156,7 @@ class TSqlSelect extends TSqlStatement
             
             if ($group)
             {
-                $this->sql .= ' GROUP BY ' . (is_array($group) ? implode(',', $group) : $group);
+                $this->sql .= ' GROUP BY ' . $group;
             }
             if ($order)
             {
@@ -111,6 +171,8 @@ class TSqlSelect extends TSqlStatement
                 $this->sql .= ' OFFSET ' . $offset;
             }
         }
+        
+       // echo $this->sql;
         // return the SQL statement
         return $this->sql;
     }
@@ -131,11 +193,11 @@ class TSqlSelect extends TSqlStatement
             
             if ($limit)
             {
-                $this->sql .= ' FIRST ' . $limit . ' ';
+                $this->sql .= ' FIRST ' . $limit;
             }
             if ($offset)
             {
-                $this->sql .= ' SKIP ' . $offset . ' ';
+                $this->sql .= ' SKIP ' . $offset;
             }
         }
         
@@ -161,7 +223,7 @@ class TSqlSelect extends TSqlStatement
             
             if ($group)
             {
-                $this->sql .= ' GROUP BY ' . (is_array($group) ? implode(',', $group) : $group);
+                $this->sql .= ' GROUP BY ' . $group;
             }
             
             if ($order)
@@ -200,8 +262,12 @@ class TSqlSelect extends TSqlStatement
             {
                 $order = '(SELECT NULL)';
             }
-            $this->sql = "SELECT {$columns} FROM ( SELECT ROW_NUMBER() OVER (order by {$order} {$direction}) AS __ROWNUMBER__, {$columns} FROM {$this->entity}";
-            
+            $this->sql = "SELECT {$columns}
+                      FROM
+                      (
+                             SELECT ROW_NUMBER() OVER (order by {$order} {$direction}) AS __ROWNUMBER__,
+                             {$columns}
+                             FROM {$this->entity}";
             if (!empty($expression))
             {
                 $this->sql.= "    WHERE {$expression} ";
@@ -237,9 +303,9 @@ class TSqlSelect extends TSqlStatement
                 $this->sql .= ' WHERE ' . $expression;
             }
             
-            if (isset($group) AND !empty($group))
+            if ($group)
             {
-                $this->sql .= ' GROUP BY ' . (is_array($group) ? implode(',', $group) : $group);
+                $this->sql .= ' GROUP BY ' . $group;
             }
             if (isset($order) AND !empty($order))
             {
@@ -278,9 +344,9 @@ class TSqlSelect extends TSqlStatement
             $basicsql .= ' WHERE ' . $expression;
         }
         
-        if (isset($group) AND !empty($group))
+        if ($group)
         {
-            $basicsql .= ' GROUP BY ' . (is_array($group) ? implode(',', $group) : $group);
+            $basicsql .= ' GROUP BY ' . $group;
         }
         if (isset($order) AND !empty($order))
         {

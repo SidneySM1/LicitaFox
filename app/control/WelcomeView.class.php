@@ -290,10 +290,14 @@ $headers = [
 curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
 curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-$response = curl_exec($curl);
-curl_close($curl);
 
-$noticias = json_decode($response);
+try {
+    $response = curl_exec($curl);
+    $noticias = json_decode($response);
+} catch (\Throwable $th) {
+    echo 'Busca por noticias mal sucedida';
+}
+curl_close($curl);
 
 
 $userId = TSession::getValue('userid');
@@ -398,3 +402,13 @@ TTransaction::close();
 </div>
 </body>
 
+<?php 
+try {
+    TTransaction::open('dbf');
+
+} catch (\PDOException $th) {
+    echo 'Erro: ' . $th->getMessage();
+}
+
+
+?>
